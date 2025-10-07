@@ -207,6 +207,52 @@ def register_routes(app):
         result, status_code = run_automation_script('task_router.py', [task_text])
         return jsonify(result), status_code
 
+    @app.route('/ai-command', methods=['POST'])
+    @require_auth
+    def ai_command():
+        """
+        Process natural language command via AI
+
+        POST body:
+            command: Natural language command (e.g., "turn off all lights")
+            dry_run: Optional, if true just parse without executing
+
+        Returns:
+            JSON with parsed command and execution result
+
+        Examples:
+            {"command": "set temperature to 72"}
+            {"command": "turn off bedroom lamp"}
+            {"command": "make it warmer"}
+            {"command": "what's the temperature?"}
+        """
+        logger.info("Received /ai-command request")
+
+        data = request.get_json() or {}
+        command = data.get('command', '')
+        dry_run = data.get('dry_run', False)
+
+        if not command:
+            return jsonify({'error': 'Command text required'}), 400
+
+        try:
+            from server.ai_handler import process_command
+            result = process_command(command, dry_run=dry_run)
+
+            if result['status'] == 'error':
+                return jsonify(result), 400
+
+            return jsonify(result), 200
+
+        except Exception as e:
+            logger.error(f"AI command processing failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to process command: {str(e)}'
+            }), 500
+
     @app.errorhandler(404)
     def not_found(e):
         """Handle 404 errors"""
