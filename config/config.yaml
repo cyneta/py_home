@@ -36,11 +36,10 @@ tapo:
   password: "${TAPO_PASSWORD}"
   outlets:
     - name: "Coffee Maker"
-      ip: "192.168.1.100"
+      ip: "192.168.1.xxx"  # Replace with actual IP
     - name: "Grow Light"
-      ip: "192.168.1.101"
-    - name: "Living Room Lamp"
-      ip: "192.168.1.102"
+      ip: "192.168.1.xxx"  # Replace with actual IP
+    # Add more outlets as needed
 
 sensibo:
   api_key: "${SENSIBO_API_KEY}"

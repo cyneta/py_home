@@ -9,7 +9,7 @@ pyyaml>=6.0.1
 # APIs
 googlemaps>=4.10.0
 tinytuya>=1.13.0
-python-pushover>=1.0
+tapo>=0.8.0
 
 # Utilities
 schedule>=1.2.0
