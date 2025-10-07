@@ -1,0 +1,44 @@
+# Systemd service file for py_home Flask server
+#
+# Installation:
+#   1. Update paths below for your system
+#   2. sudo cp server/py_home.service /etc/systemd/system/
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable py_home
+#   5. sudo systemctl start py_home
+#
+# Check status:
+#   sudo systemctl status py_home
+#   sudo journalctl -u py_home -f
+
+[Unit]
+Description=py_home Flask Webhook Server
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/py_home
+Environment="PATH=/home/pi/py_home/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="FLASK_HOST=0.0.0.0"
+Environment="FLASK_PORT=5000"
+Environment="FLASK_DEBUG=false"
+
+# Load environment variables from .env file
+EnvironmentFile=/home/pi/py_home/config/.env
+
+# Start Flask server
+ExecStart=/home/pi/py_home/venv/bin/python /home/pi/py_home/server/app.py
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=py_home
+
+[Install]
+WantedBy=multi-user.target
