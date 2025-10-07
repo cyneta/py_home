@@ -1,0 +1,96 @@
+# Home Automation Configuration
+# Non-sensitive settings (committed to git)
+# Sensitive credentials go in .env
+
+tesla:
+  email: "user@example.com"
+  refresh_token: "${TESLA_REFRESH_TOKEN}"
+
+nest:
+  access_token: "${NEST_ACCESS_TOKEN}"
+  device_id: "your-nest-device-id"
+  away_temp: 62
+  sleep_temp: 68
+  comfort_temp: 72
+
+locations:
+  home:
+    lat: 41.8781
+    lng: -87.6298
+    radius_meters: 150  # Geofence for "at home"
+  milwaukee:
+    address: "Milwaukee, WI"
+
+notifications:
+  service: "pushover"  # or "ntfy"
+  pushover:
+    token: "${PUSHOVER_TOKEN}"
+    user: "${PUSHOVER_USER}"
+
+tapo:
+  username: "${TAPO_USERNAME}"
+  password: "${TAPO_PASSWORD}"
+  outlets:
+    - name: "Coffee Maker"
+      ip: "192.168.1.100"
+    - name: "Grow Light"
+      ip: "192.168.1.101"
+    - name: "Living Room Lamp"
+      ip: "192.168.1.102"
+
+sensibo:
+  api_key: "${SENSIBO_API_KEY}"
+  bedroom_ac_id: "your-sensibo-device-id"
+
+alen:
+  api_key: "${TUYA_API_KEY}"
+  api_secret: "${TUYA_API_SECRET}"
+  devices:
+    bedroom:
+      device_id: "${TUYA_DEVICE_ID_BEDROOM}"
+      name: "Bedroom 75i"
+    living_room:
+      device_id: "${TUYA_DEVICE_ID_LIVING}"
+      name: "Living Room 75i"
+  thresholds:
+    pm25_good: 25
+    pm25_moderate: 50
+    pm25_unhealthy: 100
+
+roborock:
+  username: "${ROBOROCK_USERNAME}"
+  password: "${ROBOROCK_PASSWORD}"
+
+github:
+  token: "${GITHUB_TOKEN}"
+  repo: "your-username/siri_n8n"
+  todo_path: "TODO.md"
+
+checkvist:
+  username: "${CHECKVIST_USERNAME}"
+  api_key: "${CHECKVIST_API_KEY}"
+  lists:
+    work: 123456
+    personal: 789012
+
+google_maps:
+  api_key: "${GOOGLE_MAPS_API_KEY}"
+
+openweather:
+  api_key: "${OPENWEATHER_API_KEY}"
+  units: "imperial"  # or "metric"
+
+# Automation Settings
+automation:
+  tesla_preheat:
+    cold_threshold_f: 40
+    min_battery_percent: 30
+    target_temp_f: 72
+
+  temp_coordination:
+    trigger_ac_above_f: 76
+    turn_off_ac_below_f: 74
+
+  grow_light:
+    on_time: "06:00"
+    off_time: "20:00"
