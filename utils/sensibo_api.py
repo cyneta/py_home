@@ -128,9 +128,16 @@ class SensiboAPI:
         current_temp_f = self._c_to_f(current_temp_c) if current_temp_c else None
         current_humidity = measurements.get('humidity')
 
-        # Target temperature
-        target_temp_c = ac_state.get('targetTemperature')
-        target_temp_f = self._c_to_f(target_temp_c) if target_temp_c else None
+        # Target temperature (already in the unit specified by temperatureUnit)
+        target_temp = ac_state.get('targetTemperature')
+        temp_unit = ac_state.get('temperatureUnit', 'C')
+
+        if temp_unit == 'F':
+            target_temp_f = target_temp
+            target_temp_c = self._f_to_c(target_temp) if target_temp else None
+        else:
+            target_temp_c = target_temp
+            target_temp_f = self._c_to_f(target_temp) if target_temp else None
 
         result = {
             'on': ac_state.get('on', False),
