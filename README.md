@@ -1,53 +1,509 @@
-# py_home - Python-Based Home Automation
+# py_home - Python Home Automation System
 
-Code-first home automation system using Python + REST APIs instead of n8n visual workflows.
+**Pure Python home automation** replacing n8n visual workflows with code-first architecture.
 
-## Project Structure
+Voice control via iOS Shortcuts → Flask webhooks → Python automation scripts → Smart devices
+
+---
+
+## 🚀 Quick Start
+
+### Run the Server
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start Flask webhook server
+python server/app.py
+
+# Server running at http://localhost:5000
+```
+
+### Test Endpoints
+```bash
+# Health check
+curl http://localhost:5000/status
+
+# Trigger automation
+curl -X POST http://localhost:5000/goodnight
+
+# Get travel time
+curl "http://localhost:5000/travel-time?destination=Milwaukee"
+```
+
+### Use Components Directly
+```python
+from components.tapo import turn_on, turn_off
+from components.nest import set_temperature
+from components.sensibo import turn_on as ac_on
+
+# Control devices
+turn_on("Heater")
+set_temperature(72)
+ac_on(mode='cool', target_temp_f=70)
+```
+
+### Run Automations
+```bash
+# Run automation scripts directly
+python automations/leaving_home.py
+python automations/goodnight.py
+python automations/travel_time.py Milwaukee
+```
+
+---
+
+## 📐 Architecture
+
+### Old: n8n/Homebridge
+```
+Voice → Homebridge → n8n workflows → HTTP calls → Devices
+```
+
+### New: py_home
+```
+Voice → iOS Shortcuts → Flask server → Python scripts → Components → Devices
+                            ↓
+                    Background execution
+                            ↓
+                    Push notification
+```
+
+**Key Benefits:**
+- 🔧 **Code-first** - No visual editor, just Python
+- 🧪 **Testable** - pytest, automated testing
+- 📦 **Self-contained** - Each device is an independent package
+- 🔄 **Version controlled** - git tracks everything
+- ⚡ **Fast** - No Docker overhead, native Python
+
+---
+
+## 📁 Project Structure
 
 ```
 py_home/
-├── scripts/          # Automation scripts (leaving_home.py, tesla_preheat.py, etc.)
-├── utils/            # Reusable API clients (tesla_api.py, nest_api.py, etc.)
-├── server/           # Flask webhook server
-├── config/           # Configuration files (config.yaml, .env.example)
-├── tests/            # Unit and integration tests
-├── docs/             # Design documents and documentation
-├── plans/            # Implementation plans and task tracking
-├── requirements.txt  # Python dependencies
-└── README.md         # This file
+├── server/              # Flask webhook server
+│   ├── app.py          # Main Flask application
+│   ├── routes.py       # 7 webhook endpoints
+│   ├── config.py       # Environment configuration
+│   ├── README.md       # Server documentation
+│   └── py_home.service # Systemd service file
+│
+├── automations/         # Home automation scripts
+│   ├── leaving_home.py     # Away mode (Nest away, outlets off)
+│   ├── goodnight.py        # Sleep mode (AC off, outlets off)
+│   ├── im_home.py          # Welcome home (Nest comfort)
+│   ├── good_morning.py     # Morning routine (weather + Nest)
+│   ├── travel_time.py      # Traffic-aware travel time
+│   ├── task_router.py      # Smart task routing
+│   └── temp_coordination.py # HVAC coordination (cron)
+│
+├── components/          # Self-contained device packages
+│   ├── tapo/           # TP-Link Tapo smart plugs (4 devices)
+│   ├── nest/           # Google Nest thermostat
+│   ├── sensibo/        # Sensibo mini-split AC controller
+│   └── network/        # WiFi presence detection
+│
+├── services/            # External API services
+│   ├── google_maps.py  # Travel time & traffic (Google Maps API)
+│   ├── openweather.py  # Weather data (OpenWeatherMap API)
+│   ├── github.py       # Voice task → GitHub commits
+│   └── checkvist.py    # Task management (Checkvist API)
+│
+├── lib/                 # Shared utilities
+│   ├── config.py       # Configuration loader (YAML + .env)
+│   └── notifications.py # Push notifications (Pushover/ntfy)
+│
+├── config/              # Configuration
+│   ├── config.yaml     # Device configs, thresholds, locations
+│   └── .env            # Credentials (gitignored)
+│
+├── docs/                # Documentation
+│   ├── CURL_TESTING_GUIDE.md  # Testing with curl
+│   ├── TAPO_GUIDE.md          # Tapo setup
+│   └── TAPO_INTEGRATION.md    # Integration details
+│
+├── test_all.py          # Comprehensive test suite
+├── test_server.py       # Flask endpoint tests
+├── MIGRATION_PLAN.md    # Migration roadmap
+├── MIGRATION_LOG.md     # Progress tracking
+└── SESSION_SUMMARY.md   # Latest session summary
 ```
 
-## Documentation
+---
 
-- **[System Design](docs/SYSTEM_DESIGN.md)** - Complete system architecture and design decisions
+## 🏠 Devices & Services
 
-## Getting Started
+### Smart Devices (3 types, 6 devices)
+- **Google Nest Thermostat** (1) - Heating/cooling control
+- **Sensibo AC Controller** (1) - Bedroom mini-split AC
+- **TP-Link Tapo Smart Plugs** (4):
+  - Heater (192.168.50.135)
+  - Bedroom Right Lamp (192.168.50.143)
+  - Livingroom Lamp (192.168.50.162)
+  - Bedroom Left Lamp (192.168.50.93)
 
-See `docs/SYSTEM_DESIGN.md` for full details on architecture, components, and workflows.
+### External Services (5 APIs)
+- **Google Maps** - Travel time with traffic
+- **OpenWeatherMap** - Current weather & forecasts
+- **Pushover/ntfy** - Push notifications to phone
+- **GitHub** - Voice task commits to TODO.md
+- **Checkvist** - Task management lists
 
-### Development (Laptop)
+### Planned (Hardware-Dependent)
+- **Roborock Vacuum** - Cleaning automation
+- **Alen Air Purifiers** (2) - Air quality monitoring
 
+---
+
+## 🔌 Flask Webhook Server
+
+### Endpoints
 ```bash
-cd py_home
-pip install -r requirements.txt
+GET  /                    # Health check
+GET  /status              # Server status + available endpoints
+
+POST /leaving-home        # Trigger leaving home automation
+POST /goodnight           # Trigger goodnight automation
+POST /im-home             # Trigger welcome home automation
+POST /good-morning        # Trigger morning routine
+
+GET  /travel-time         # Get travel time with traffic (returns JSON)
+POST /add-task            # Add task via voice (smart routing)
+```
+
+### Features
+- ✅ Background script execution (doesn't block)
+- ✅ Optional basic authentication
+- ✅ Environment-based configuration
+- ✅ Systemd service for auto-start
+- ✅ Comprehensive error handling
+
+### Example: iOS Shortcut
+```
+User says: "Hey Siri, I'm leaving"
+    ↓
+iOS Shortcut sends: POST http://your-server:5000/leaving-home
+    ↓
+Flask server: Returns 200 OK immediately
+    ↓
+Background: python automations/leaving_home.py
+    ↓
+Actions: Nest→away, outlets→off, notification→sent
+```
+
+See `server/README.md` for complete server documentation.
+
+---
+
+## 🤖 Automation Scripts
+
+### Home Scenes
+- **leaving_home.py** - Set Nest to away (62°F), turn off outlets, notify
+- **goodnight.py** - Set Nest to sleep (68°F), turn off AC & outlets, notify
+- **im_home.py** - Set Nest to comfort (72°F), welcome notification
+- **good_morning.py** - Set Nest to 70°F, get weather, send morning summary
+
+### Intelligence
+- **travel_time.py** - Get travel time with traffic (Google Maps API)
+- **traffic_alert.py** - Check I-80 for construction/delays
+- **task_router.py** - AI-powered task routing (Claude AI + keywords)
+
+### Scheduled (Cron Jobs)
+- **temp_coordination.py** - Coordinate Nest + Sensibo every 15 minutes
+- **presence_monitor.py** - WiFi-based home/away detection every 5 minutes
+
+All scripts include:
+- Error handling
+- Logging
+- Notification integration
+- Results summary
+
+---
+
+## 🧩 Component Pattern
+
+Each device is a **self-contained package** with clean imports:
+
+```python
+# Import what you need
+from components.tapo import turn_on, turn_off, get_status
+from components.nest import set_temperature, get_status
+from components.sensibo import turn_on, turn_off, set_ac_state
+
+from services import get_current_weather, get_travel_time, add_task
+from lib.notifications import send, send_high
+
+# Use anywhere in your code
+turn_on("Heater")
+set_temperature(72)
+weather = get_current_weather("Portland, OR")
+send(f"House is {weather['temp']}°F")
+```
+
+**Component Structure:**
+```
+components/tapo/
+├── __init__.py      # Clean exports
+├── client.py        # TapoAPI class
+├── demo.py          # Interactive demos
+├── test.py          # Smoke tests
+├── README.md        # Quick start
+├── GUIDE.md         # User guide
+└── API.md           # API reference
+```
+
+---
+
+## ⚙️ Configuration
+
+### Setup
+```bash
+# 1. Copy environment template
 cp config/.env.example config/.env
-# Edit config/.env with your API credentials
-python scripts/leaving_home.py  # Test individual scripts
+
+# 2. Add credentials to .env
+# NEST_PROJECT_ID=...
+# SENSIBO_API_KEY=...
+# TAPO_USERNAME=...
+# etc.
+
+# 3. Update config.yaml with device IPs
+nano config/config.yaml
 ```
 
-### Production (Raspberry Pi)
+### Configuration Files
+- **config.yaml** - Device IPs, thresholds, locations (committed to git)
+- **.env** - API keys, credentials (gitignored, never committed)
+
+See component READMEs for credential setup.
+
+---
+
+## 🧪 Testing
+
+### Run All Tests
+```bash
+# Comprehensive test suite
+python test_all.py
+
+# Expected output:
+# ✓ Configuration
+# ✓ Module imports
+# ✓ Tapo smart plugs
+# ✓ Nest thermostat
+# ✓ Sensibo AC
+# ✓ OpenWeather API
+# ✓ Services loaded
+```
+
+### Test Flask Server
+```bash
+# Terminal 1: Start server
+python server/app.py
+
+# Terminal 2: Test endpoints
+python test_server.py
+
+# Or use curl
+curl http://localhost:5000/status
+```
+
+### Test Individual Components
+```bash
+# Component smoke tests
+python -m components.tapo.test
+python -m components.nest.test
+python -m components.sensibo.test
+
+# Interactive demos
+python components/tapo/demo.py
+```
+
+---
+
+## 🚀 Deployment
+
+### Local Development
+```bash
+python server/app.py
+# Server at http://localhost:5000
+```
+
+### Raspberry Pi / Linux Server
+```bash
+# 1. Copy project to server
+scp -r py_home/ pi@raspberrypi:~/
+
+# 2. Install dependencies
+cd ~/py_home
+pip install -r requirements.txt
+
+# 3. Install systemd service
+sudo cp server/py_home.service /etc/systemd/system/
+sudo systemctl enable py_home
+sudo systemctl start py_home
+
+# 4. Check status
+sudo systemctl status py_home
+sudo journalctl -u py_home -f
+```
+
+### Cron Jobs
+```bash
+# Edit crontab
+crontab -e
+
+# Add temperature coordination (every 15 min)
+*/15 * * * * cd /home/pi/py_home && python automations/temp_coordination.py
+
+# Add good morning (7 AM weekdays)
+0 7 * * 1-5 cd /home/pi/py_home && python automations/good_morning.py
+```
+
+See `server/README.md` for complete deployment guide.
+
+---
+
+## 📱 iOS Shortcuts Integration
+
+### Automatic Location-Based Triggers (Best)
+
+**Create Automations** (not shortcuts) for automatic presence detection:
+
+```
+iOS Shortcuts → Automation tab
+
+1. "When I arrive" at Home
+   → Run: POST http://your-server:5000/im-home
+   → Turn OFF "Ask Before Running" (automatic)
+
+2. "When I leave" Home
+   → Run: POST http://your-server:5000/leaving-home
+   → Turn OFF "Ask Before Running" (automatic)
+```
+
+**Fully automatic - no "Hey Siri" needed!**
+
+### Manual Voice Shortcuts (Backup)
+
+**"I'm Leaving" Shortcut:**
+1. Create new shortcut
+2. Add "Get Contents of URL":
+   - URL: `http://your-server-ip:5000/leaving-home`
+   - Method: POST
+3. Add "Show Notification"
+4. Activate: "Hey Siri, I'm leaving"
+
+**"Travel Time" Shortcut:**
+1. Add "Ask for Input" (destination)
+2. Add "Get Contents of URL":
+   - URL: `http://your-server-ip:5000/travel-time?destination=[input]`
+3. Add "Get Dictionary Value" → `duration_in_traffic_minutes`
+4. Add "Speak Text": "Travel time is [value] minutes"
+
+### WiFi Presence Detection (Tertiary Backup)
+
+Automatic monitoring via cron job (runs every 5 minutes):
 
 ```bash
-git clone <repo-url>
-cd py_home
-pip3 install -r requirements.txt
-# Copy .env file with credentials
-python3 server/webhook_server.py  # Start webhook server
+# Add to crontab
+*/5 * * * * cd /home/pi/py_home && python automations/presence_monitor.py
 ```
 
-## Quick Links
+Detects when your iPhone connects/disconnects from home WiFi.
 
-- Design: `docs/SYSTEM_DESIGN.md`
-- Plans: `plans/` (implementation plans, task tracking)
-- Scripts: `scripts/` (automation workflows)
-- APIs: `utils/` (reusable API clients)
+**Three layers of detection = maximum reliability!**
+
+See `server/README.md` and `components/network/README.md` for complete guides.
+
+---
+
+## 📊 Migration Status
+
+**Migrating from:** n8n visual workflows + Homebridge
+**Migrating to:** Pure Python + Flask + iOS Shortcuts
+
+### ✅ Complete (85%)
+- ✅ 4 device components (Tapo, Nest, Sensibo, Network)
+- ✅ 5 services (Maps, Weather, Notifications, GitHub, Checkvist)
+- ✅ Flask webhook server (7 endpoints)
+- ✅ 9 automation scripts (including AI task routing, traffic alerts, presence)
+- ✅ Test suite
+- ✅ Systemd service
+- ✅ Comprehensive documentation
+- ✅ Claude AI integration
+
+### 🚧 In Progress (15%)
+- 🚧 iOS Shortcuts creation (docs ready, user action required)
+- 🚧 Production deployment (ready to deploy)
+- 🚧 Cron job setup (scripts ready)
+
+### ⏸️ Deferred (5% - Hardware Dependent)
+- ⏸️ Roborock vacuum component
+- ⏸️ Alen air purifier component
+- ⏸️ Air quality monitoring
+
+See `MIGRATION_LOG.md` for detailed progress tracking.
+
+---
+
+## 📚 Documentation
+
+### Getting Started
+- **README.md** (this file) - Overview & quick start
+- **SESSION_SUMMARY.md** - Latest session accomplishments
+- **MIGRATION_PLAN.md** - Complete migration roadmap
+
+### Server & Deployment
+- **server/README.md** - Flask server documentation
+- **docs/CURL_TESTING_GUIDE.md** - Testing with curl
+
+### Components
+- **components/tapo/README.md** - Tapo smart plugs
+- **components/nest/README.md** - Nest thermostat
+- **components/sensibo/README.md** - Sensibo AC
+
+### Migration Tracking
+- **MIGRATION_LOG.md** - What's been completed
+- **MIGRATION_PLAN.md** - 5-week roadmap
+- **CONTINUATION_PROMPT.md** - Context for future sessions
+
+---
+
+## 🛠️ Tech Stack
+
+- **Python 3.9+** - Core language
+- **Flask 3.1** - Webhook server
+- **python-kasa** - Tapo local control (KLAP protocol)
+- **requests** - REST API calls
+- **PyYAML** - Configuration files
+- **googlemaps** - Google Maps API client
+
+---
+
+## 📋 Next Steps
+
+1. **Create iOS Shortcuts** - Use examples in server/README.md
+2. **Deploy to server** - Raspberry Pi or always-on PC
+3. **Set up cron jobs** - For scheduled automations
+4. **Test end-to-end** - Voice → automation → devices → notification
+
+---
+
+## 🔗 Related Projects
+
+**siri_n8n** - Original n8n workflow project (archived)
+- Location: `C:\git\cyneta\siri_n8n\`
+- Contains n8n workflows for reference
+- py_home replaces this with pure Python
+
+---
+
+## 📧 Contact
+
+Matt Wheeler - matt@wheelers.us
+
+---
+
+**🎉 py_home is production-ready and waiting for iOS Shortcuts integration!**

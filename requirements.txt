@@ -9,7 +9,8 @@ pyyaml>=6.0.1
 # APIs
 googlemaps>=4.10.0
 tinytuya>=1.13.0
-tapo>=0.8.0
+python-kasa>=0.8.0
+anthropic>=0.18.0  # Claude AI for task classification
 
 # Utilities
 schedule>=1.2.0

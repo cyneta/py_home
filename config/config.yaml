@@ -35,11 +35,14 @@ tapo:
   username: "${TAPO_USERNAME}"
   password: "${TAPO_PASSWORD}"
   outlets:
-    - name: "Coffee Maker"
-      ip: "192.168.1.xxx"  # Replace with actual IP
-    - name: "Grow Light"
-      ip: "192.168.1.xxx"  # Replace with actual IP
-    # Add more outlets as needed
+    - name: "Heater"
+      ip: "192.168.50.135"
+    - name: "Bedroom Right Lamp"
+      ip: "192.168.50.143"
+    - name: "Livingroom Lamp"
+      ip: "192.168.50.162"
+    - name: "Bedroom Bedroom Left Lamp"
+      ip: "192.168.50.93"
 
 sensibo:
   api_key: "${SENSIBO_API_KEY}"
@@ -82,6 +85,23 @@ google_maps:
 openweather:
   api_key: "${OPENWEATHER_API_KEY}"
   units: "imperial"  # or "metric"
+  zip_code: "97202,us"  # Default location (Portland, OR)
+
+presence:
+  # Network-based presence detection (backup to iOS location)
+  devices:
+    primary:
+      name: "Matt's iPhone"
+      ip: "192.168.1.50"  # Get from: Settings → WiFi → (i) → IP Address
+      mac: "AA:BB:CC:DD:EE:FF"  # Get from: Settings → General → About → WiFi Address
+      method: "auto"  # ping, arp, or auto (recommended)
+
+    # Add more devices if needed
+    # ipad:
+    #   name: "Matt's iPad"
+    #   ip: "192.168.1.51"
+    #   mac: "BB:CC:DD:EE:FF:00"
+    #   method: "auto"
 
 # Automation Settings
 automation:
