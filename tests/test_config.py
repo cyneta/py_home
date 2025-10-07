@@ -3,7 +3,7 @@ Tests for configuration loading
 """
 
 import pytest
-from utils.config import config, get
+from lib.config import config, get
 
 
 def test_config_loads():
