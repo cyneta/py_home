@@ -12,24 +12,24 @@
 - [x] ✅ Create .env.example template
 - [x] ✅ Create config.yaml
 - [x] ✅ Create .gitignore
-- [ ] ❌ Initialize git repo
-- [ ] ❌ First commit to GitHub
+- [x] ✅ Initialize git repo
+- [x] ✅ First commit to GitHub
 
 ### Core Utilities
-- [ ] ❌ `utils/config.py` - Load config.yaml and .env
-- [ ] ❌ `utils/notifications.py` - Send notifications (Pushover/ntfy)
+- [x] ✅ `utils/config.py` - Load config.yaml and .env
+- [x] ✅ `utils/notifications.py` - Send notifications (Pushover/ntfy)
 - [ ] ❌ Test notifications from laptop
 
-### API Clients
-- [ ] ❌ `utils/tesla_api.py` - Tesla control
-- [ ] ❌ Test Tesla API from laptop
-- [ ] ❌ `utils/google_maps.py` - Travel time queries
+### API Clients (Tesla SKIPPED - API deprecated)
+- [ ] 🔄 `utils/google_maps.py` - Travel time queries
 - [ ] ❌ Test Google Maps from laptop
 - [ ] ❌ `utils/weather.py` - Weather data
 - [ ] ❌ Test weather API from laptop
+- [ ] ❌ `utils/nest_api.py` - Thermostat control
+- [ ] ❌ `utils/tapo_api.py` - Smart outlets
 
 ### First Automation
-- [ ] ❌ `scripts/tesla_preheat.py` - Smart pre-heat based on weather
+- [ ] ❌ `scripts/leaving_home.py` - Leaving home scene (Nest + Tapo + notifications)
 - [ ] ❌ Test complete workflow from laptop
 
 ---
@@ -93,15 +93,15 @@
 
 ### Scheduled Tasks
 - [ ] ❌ Set up crontab on Pi
-- [ ] ❌ Schedule tesla_preheat.py for 7 AM weekdays
 - [ ] ❌ `scripts/grow_light.py` - On/off control
 - [ ] ❌ Schedule grow light: on 6 AM, off 8 PM
 
-### Tesla Presence
-- [ ] ❌ `scripts/tesla_presence.py` - Location-based automation
-- [ ] ❌ Schedule to run every 5 minutes
-- [ ] ❌ Track state (home/away) in temp file
-- [ ] ❌ Trigger arrival/departure scenes
+### Tesla Integration (DEFERRED - API deprecated)
+- [ ] 🔮 Research Tesla Fleet API or Teslemetry service
+- [ ] 🔮 Decide on Tesla integration approach
+- [ ] 🔮 `utils/tesla_api.py` - If feasible
+- [ ] 🔮 `scripts/tesla_preheat.py` - Weather-aware pre-heat
+- [ ] 🔮 `scripts/tesla_presence.py` - Location-based automation
 
 ### Multi-Device Coordination
 - [ ] ❌ `scripts/temp_coordination.py` - Nest + Sensibo logic
