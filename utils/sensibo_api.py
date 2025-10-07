@@ -182,10 +182,13 @@ class SensiboAPI:
         if 'mode' in kwargs:
             ac_state['mode'] = kwargs['mode']
 
+        # Note: Sensibo API uses the unit set on the device (F or C)
+        # We need to check current temperatureUnit or just send the value as-is
         if 'target_temp_f' in kwargs:
-            ac_state['targetTemperature'] = self._f_to_c(kwargs['target_temp_f'])
+            # Send as integer, Sensibo will interpret based on device's temperatureUnit setting
+            ac_state['targetTemperature'] = int(kwargs['target_temp_f'])
         elif 'target_temp_c' in kwargs:
-            ac_state['targetTemperature'] = kwargs['target_temp_c']
+            ac_state['targetTemperature'] = int(kwargs['target_temp_c'])
 
         if 'fan_level' in kwargs:
             ac_state['fanLevel'] = kwargs['fan_level']

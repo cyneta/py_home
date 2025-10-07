@@ -2,13 +2,17 @@
 # Non-sensitive settings (committed to git)
 # Sensitive credentials go in .env
 
-tesla:
-  email: "user@example.com"
-  refresh_token: "${TESLA_REFRESH_TOKEN}"
+# Tesla integration deferred - see docs/TESLA_STATUS.md
+# tesla:
+#   email: "user@example.com"
+#   refresh_token: "${TESLA_REFRESH_TOKEN}"
 
 nest:
-  access_token: "${NEST_ACCESS_TOKEN}"
-  device_id: "your-nest-device-id"
+  project_id: "${NEST_PROJECT_ID}"
+  client_id: "${NEST_CLIENT_ID}"
+  client_secret: "${NEST_CLIENT_SECRET}"
+  refresh_token: "${NEST_REFRESH_TOKEN}"
+  device_id: "enterprises/b8e3fce2-20f4-471f-80e3-d08be2432b75/devices/AVPHwEuC4Fph26_szWKkiHKW4NY3yTTsUZxHDMbDQvUKAgE52AIpVM22O6m0pDaizIZbGIIiSmET4AgzYzRVUYvWvx7dvA"
   away_temp: 62
   sleep_temp: 68
   comfort_temp: 72
@@ -40,7 +44,7 @@ tapo:
 
 sensibo:
   api_key: "${SENSIBO_API_KEY}"
-  bedroom_ac_id: "your-sensibo-device-id"
+  bedroom_ac_id: "6WwepeGh"
 
 alen:
   api_key: "${TUYA_API_KEY}"
