@@ -18,9 +18,10 @@ Usage:
 import os
 import sys
 import logging
+import time
 from datetime import datetime
+from lib.logging_config import kvlog
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Check for dry-run mode
@@ -29,19 +30,10 @@ DRY_RUN = os.environ.get('DRY_RUN', 'false').lower() == 'true' or '--dry-run' in
 
 def run():
     """Execute leaving home automation"""
-    timestamp = datetime.now().isoformat()
+    start_time = time.time()
+    kvlog(logger, logging.NOTICE, automation='leaving_home', event='start', dry_run=DRY_RUN)
 
-    if DRY_RUN:
-        logger.info(f"[DRY-RUN] Leaving home automation triggered at {timestamp}")
-    else:
-        logger.info(f"Leaving home automation triggered at {timestamp}")
-
-    results = {
-        'timestamp': timestamp,
-        'action': 'leaving_home',
-        'message': 'Setting house to away mode',
-        'errors': []
-    }
+    errors = []
 
     # 1. Set Nest to away temperature
     try:
@@ -50,66 +42,65 @@ def run():
 
         away_temp = config['nest']['away_temp']
         nest = NestAPI(dry_run=DRY_RUN)
+
+        api_start = time.time()
         nest.set_temperature(away_temp)
-        results['nest'] = f'Set to {away_temp}°F (away mode)'
-        logger.info(f"✓ Nest set to away temp: {away_temp}°F")
+        duration_ms = int((time.time() - api_start) * 1000)
+
+        kvlog(logger, logging.NOTICE, automation='leaving_home', device='nest',
+              action='set_temp', target=away_temp, result='ok', duration_ms=duration_ms)
     except Exception as e:
-        logger.error(f"✗ Failed to set Nest: {e}")
-        results['errors'].append(f"Nest: {e}")
+        kvlog(logger, logging.ERROR, automation='leaving_home', device='nest',
+              action='set_temp', error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Nest: {e}")
 
     # 2. Turn off all Tapo outlets
     try:
         from components.tapo import TapoAPI
 
         tapo = TapoAPI(dry_run=DRY_RUN)
+
+        api_start = time.time()
         tapo.turn_off_all()
-        results['tapo'] = 'All outlets turned off'
-        logger.info("✓ All Tapo outlets turned off")
+        duration_ms = int((time.time() - api_start) * 1000)
+
+        kvlog(logger, logging.NOTICE, automation='leaving_home', device='tapo',
+              action='turn_off_all', result='ok', duration_ms=duration_ms)
     except Exception as e:
-        logger.error(f"✗ Failed to turn off outlets: {e}")
-        results['errors'].append(f"Tapo: {e}")
+        kvlog(logger, logging.ERROR, automation='leaving_home', device='tapo',
+              action='turn_off_all', error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Tapo: {e}")
 
-    # 3. Future: Start vacuum
-    # Will be implemented when Roborock component is ready
-    results['vacuum'] = 'Not configured yet'
-
-    # 4. Send notification
+    # 3. Send notification
     try:
-        if DRY_RUN:
-            logger.info("[DRY-RUN] Would send notification")
-            results['notification'] = 'Skipped (dry-run)'
-        else:
+        if not DRY_RUN:
             from lib.notifications import send
 
-            if results['errors']:
-                message = f"House set to away mode (with {len(results['errors'])} errors)"
+            if errors:
+                message = f"House set to away mode (with {len(errors)} errors)"
                 send(message, title="🏠 Leaving Home", priority=1)
             else:
                 send("House secured - Away mode activated", title="🏠 Leaving Home")
 
-            results['notification'] = 'Sent'
-        logger.info("✓ Notification handled")
+            kvlog(logger, logging.INFO, automation='leaving_home', action='notification', result='sent')
+        else:
+            kvlog(logger, logging.DEBUG, automation='leaving_home', action='notification', result='skipped_dry_run')
     except Exception as e:
-        logger.error(f"✗ Failed to send notification: {e}")
-        results['errors'].append(f"Notification: {e}")
+        kvlog(logger, logging.ERROR, automation='leaving_home', action='notification',
+              error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Notification: {e}")
 
-    # Summary
-    status = "SUCCESS" if not results['errors'] else "PARTIAL"
-    logger.info(f"\n{'='*50}")
-    logger.info(f"Leaving Home Automation: {status}")
-    logger.info(f"  Nest: {results.get('nest', 'FAILED')}")
-    logger.info(f"  Tapo: {results.get('tapo', 'FAILED')}")
-    logger.info(f"  Vacuum: {results.get('vacuum', 'FAILED')}")
-    logger.info(f"  Notification: {results.get('notification', 'FAILED')}")
+    # Complete
+    total_duration_ms = int((time.time() - start_time) * 1000)
+    kvlog(logger, logging.NOTICE, automation='leaving_home', event='complete',
+          duration_ms=total_duration_ms, errors=len(errors))
 
-    if results['errors']:
-        logger.info(f"\nErrors:")
-        for error in results['errors']:
-            logger.info(f"  - {error}")
-
-    logger.info(f"{'='*50}\n")
-
-    return results
+    return {
+        'action': 'leaving_home',
+        'status': 'success' if not errors else 'partial',
+        'errors': errors,
+        'duration_ms': total_duration_ms
+    }
 
 
 if __name__ == '__main__':

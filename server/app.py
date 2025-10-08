@@ -15,18 +15,12 @@ Usage:
 """
 
 import logging
-import sys
 from flask import Flask
 from server import config
+from lib.logging_config import setup_logging, kvlog
 
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, config.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(config.LOG_FILE) if config.LOG_FILE else logging.StreamHandler(sys.stdout)
-    ]
-)
+# Configure centralized logging
+setup_logging(log_level=config.LOG_LEVEL, log_file=config.LOG_FILE)
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +32,13 @@ app.config['SECRET_KEY'] = config.SECRET_KEY
 from server.routes import register_routes
 register_routes(app)
 
-logger.info(f"Flask server configured:")
-logger.info(f"  Host: {config.HOST}")
-logger.info(f"  Port: {config.PORT}")
-logger.info(f"  Debug: {config.DEBUG}")
-logger.info(f"  Auth Required: {config.REQUIRE_AUTH}")
+kvlog(logger, logging.INFO, component='flask', event='configured',
+      host=config.HOST, port=config.PORT, debug=config.DEBUG, auth_required=config.REQUIRE_AUTH)
 
 
 def main():
     """Run the Flask development server"""
-    logger.info("Starting Flask webhook server...")
+    kvlog(logger, logging.NOTICE, component='flask', event='starting')
     app.run(
         host=config.HOST,
         port=config.PORT,

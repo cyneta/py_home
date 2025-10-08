@@ -8,9 +8,11 @@ import os
 import sys
 import subprocess
 import logging
+import time
 from functools import wraps
 from flask import request, jsonify
 from server import config
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ def run_automation_script(script_name, args=None):
     script_path = os.path.join(config.AUTOMATIONS_DIR, script_name)
 
     if not os.path.exists(script_path):
-        logger.error(f"Script not found: {script_path}")
+        kvlog(logger, logging.ERROR, event='script_not_found', script=script_name, path=script_path)
         return {'error': f'Script not found: {script_name}'}, 404
 
     # Build command
@@ -61,7 +63,7 @@ def run_automation_script(script_name, args=None):
             start_new_session=True  # Detach from parent process
         )
 
-        logger.info(f"Started automation: {script_name} with args: {args}")
+        kvlog(logger, logging.INFO, event='automation_started', script=script_name, args=str(args or []))
         return {
             'status': 'started',
             'script': script_name,
@@ -69,12 +71,35 @@ def run_automation_script(script_name, args=None):
         }, 200
 
     except Exception as e:
-        logger.error(f"Failed to run script {script_name}: {e}")
+        kvlog(logger, logging.ERROR, event='automation_failed', script=script_name, error_type=type(e).__name__, error_msg=str(e))
         return {'error': str(e)}, 500
 
 
 def register_routes(app):
     """Register all routes with the Flask app"""
+
+    @app.before_request
+    def log_request_start():
+        """Log incoming request and start timer"""
+        request.start_time = time.time()
+        kvlog(logger, logging.DEBUG,
+              event='request_start',
+              method=request.method,
+              path=request.path,
+              client=request.remote_addr)
+
+    @app.after_request
+    def log_request_end(response):
+        """Log request completion with timing"""
+        if hasattr(request, 'start_time'):
+            duration_ms = int((time.time() - request.start_time) * 1000)
+            kvlog(logger, logging.NOTICE,
+                  event='request_complete',
+                  method=request.method,
+                  path=request.path,
+                  status=response.status_code,
+                  duration_ms=duration_ms)
+        return response
 
     @app.route('/')
     def index():
