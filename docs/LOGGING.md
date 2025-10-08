@@ -40,11 +40,17 @@ LOG_LEVEL=DEBUG python server/app.py
 TIMESTAMP NAME[PID] LEVEL key1=value1 key2=value2 ...
 ```
 
+**Value Quoting (RFC 5424 Compatible):**
+- Simple values: `status=200` (no quotes)
+- Values with spaces/special chars: `error_msg="Connection timeout"` (quoted)
+- Internal quotes escaped: `task="Fix \"critical\" bug"` (escaped with backslash)
+
 ### Example Logs
 ```
 2025-10-08 14:23:45 py_home.automation[1234] NOTICE automation=leaving_home event=start dry_run=False
 2025-10-08 14:23:45 py_home.nest[1234] NOTICE automation=leaving_home device=nest action=set_temp target=62 result=ok duration_ms=234
 2025-10-08 14:23:46 py_home.automation[1234] NOTICE automation=leaving_home event=complete duration_ms=1234 errors=0
+2025-10-08 14:23:46 py_home.nest[1234] ERROR device=nest action=set_temp error_type=ConnectionError error_msg="HTTPSConnectionPool(host=api.nest.com, port=443): Max retries exceeded"
 ```
 
 ---
@@ -83,6 +89,19 @@ grep "automation=leaving_home" py_home.log
 
 # Flask requests
 grep "path=/automation" py_home.log
+```
+
+### Extracting Quoted Values
+
+```bash
+# Extract error messages (handles spaces/colons)
+grep 'error_msg=' py_home.log | grep -o 'error_msg="[^"]*"' | cut -d'"' -f2
+
+# Extract task text
+grep 'task=' py_home.log | grep -o 'task="[^"]*"' | cut -d'"' -f2
+
+# Extract any quoted value
+grep 'field_name=' py_home.log | sed 's/.*field_name="\([^"]*\)".*/\1/'
 ```
 
 ### Performance Analysis

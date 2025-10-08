@@ -13,7 +13,9 @@
       "Bash(curl -X POST http://127.0.0.1:5000/automation/leaving_home -H \"Content-Type: application/json\" -d \"{\"\"dry_run\"\": true}\")",
       "Bash(curl -X GET http://127.0.0.1:5000/status)",
       "Bash(curl:*)",
-      "Bash(ssh matt.wheeler@raspberrypi.local \"ls -la ~ | grep -E ''n8n|siri_n8n|home_automation''\")"
+      "Bash(ssh matt.wheeler@raspberrypi.local \"ls -la ~ | grep -E ''n8n|siri_n8n|home_automation''\")",
+      "WebSearch",
+      "Read(//c/tmp/**)"
     ],
     "deny": [],
     "ask": []
