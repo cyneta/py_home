@@ -689,6 +689,60 @@ def main():
         print_result(result)
         all_results.append(result)
 
+    # Test geofencing/location (new tests)
+    if not args.only or args.only in ['geofencing', 'location']:
+        print_header("Geofencing & Location")
+
+        # Location module tests
+        start = time.time()
+        try:
+            from tests import test_location
+            success = test_location.main()
+            if success:
+                result = TestResult(
+                    "Location Tracking",
+                    'pass',
+                    "All location tests passed (5/5)",
+                    duration=time.time() - start
+                )
+            else:
+                result = TestResult(
+                    "Location Tracking",
+                    'fail',
+                    "Some location tests failed",
+                    duration=time.time() - start
+                )
+        except Exception as e:
+            result = TestResult("Location Tracking", 'fail', str(e), duration=time.time() - start)
+
+        print_result(result)
+        all_results.append(result)
+
+        # Geofence endpoint tests
+        start = time.time()
+        try:
+            from tests import test_geofence_endpoints
+            success = test_geofence_endpoints.main()
+            if success:
+                result = TestResult(
+                    "Geofence Endpoints",
+                    'pass',
+                    "All endpoint tests passed (5/5)",
+                    duration=time.time() - start
+                )
+            else:
+                result = TestResult(
+                    "Geofence Endpoints",
+                    'fail',
+                    "Some endpoint tests failed",
+                    duration=time.time() - start
+                )
+        except Exception as e:
+            result = TestResult("Geofence Endpoints", 'fail', str(e), duration=time.time() - start)
+
+        print_result(result)
+        all_results.append(result)
+
     # Summary
     total_time = time.time() - start_time
 

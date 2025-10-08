@@ -74,7 +74,7 @@ roborock:
 
 github:
   token: "${GITHUB_TOKEN}"
-  repo: "your-username/siri_n8n"
+  repo: "cyneta/py_home"
   todo_path: "TODO.md"
 
 checkvist:
