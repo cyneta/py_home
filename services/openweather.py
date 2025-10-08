@@ -31,7 +31,10 @@ class OpenWeatherAPI:
 
         self.api_key = api_key or config['openweather']['api_key']
         self.units = units or config['openweather'].get('units', 'imperial')
-        self.zip_code = zip_code or config['openweather'].get('zip_code', '97202,us')
+        # Use home location coordinates as default (not hardcoded zip)
+        self.home_lat = config['locations']['home']['lat']
+        self.home_lon = config['locations']['home']['lng']
+        self.zip_code = zip_code  # Only use if explicitly provided
 
         if not self.api_key:
             raise ValueError(
@@ -96,8 +99,9 @@ class OpenWeatherAPI:
                 # Just zip code, assume US
                 params['zip'] = f"{location},us"
         else:
-            # Use default location
-            params['zip'] = self.zip_code
+            # Use home location coordinates as default
+            params['lat'] = self.home_lat
+            params['lon'] = self.home_lon
 
         data = self._get('weather', params)
 
@@ -169,7 +173,9 @@ class OpenWeatherAPI:
             else:
                 params['zip'] = f"{location},us"
         else:
-            params['zip'] = self.zip_code
+            # Use home location coordinates as default
+            params['lat'] = self.home_lat
+            params['lon'] = self.home_lon
 
         # Limit to requested days (each day has 8 periods of 3 hours)
         params['cnt'] = min(days * 8, 40)

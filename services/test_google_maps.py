@@ -28,9 +28,11 @@ def test():
         print(f"✓ Traffic: {result.get('traffic_level', 'N/A')}")
         print()
 
-        # Test 2: Use default origin from config
-        print("Test 2: Default origin → Milwaukee")
-        result = get_travel_time(destination="Milwaukee, WI")
+        # Test 2: Use default origin from config (home location)
+        print("Test 2: Home location → Milwaukee")
+        home = config['locations']['home']
+        origin = f"{home['lat']},{home['lng']}"
+        result = get_travel_time(origin=origin, destination="Milwaukee, WI")
 
         assert 'duration_minutes' in result, "Missing duration_minutes"
         print(f"✓ Duration: {result['duration_minutes']} min")

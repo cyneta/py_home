@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(awk:*)",
+      "Read(//c/git/cyneta/siri_n8n//**)",
+      "Bash(cat:*)",
+      "Read(//c/git/cyneta/siri_n8n/**)",
+      "Bash(timeout:*)",
+      "Bash(git reset:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

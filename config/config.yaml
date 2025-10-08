@@ -19,8 +19,11 @@ nest:
 
 locations:
   home:
-    lat: 41.8781
-    lng: -87.6298
+    lat: 45.7054
+    lng: -121.5215
+    zip: "97031"
+    city: "Hood River"
+    state: "OR"
     radius_meters: 150  # Geofence for "at home"
   milwaukee:
     address: "Milwaukee, WI"
