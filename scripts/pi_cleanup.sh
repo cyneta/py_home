@@ -19,9 +19,9 @@ print_status() { echo -e "${GREEN}✓${NC} $1"; }
 print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 print_error() { echo -e "${RED}✗${NC} $1"; }
 
-# Check user
-if [ "$USER" != "pi" ]; then
-    print_error "Please run as pi user, not root"
+# Check not running as root
+if [ "$EUID" -eq 0 ]; then
+    print_error "Please don't run as root (use regular user)"
     exit 1
 fi
 
