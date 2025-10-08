@@ -14,10 +14,13 @@ import os
 import sys
 import json
 import logging
+import time
 from typing import Dict, Any, Optional
 
 # Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +121,12 @@ def parse_with_claude(command: str) -> Dict[str, Any]:
     Returns:
         Dict with type, action, params, reasoning
     """
+    start_time = time.time()
     try:
         import anthropic
     except ImportError:
+        kvlog(logger, logging.ERROR, module='ai_handler', action='parse_with_claude',
+              error_type='ImportError', error_msg='anthropic package not installed')
         return {
             "type": "error",
             "action": "missing_dependency",
@@ -130,6 +136,8 @@ def parse_with_claude(command: str) -> Dict[str, Any]:
 
     api_key = get_claude_api_key()
     if not api_key:
+        kvlog(logger, logging.ERROR, module='ai_handler', action='parse_with_claude',
+              error_type='ConfigError', error_msg='ANTHROPIC_API_KEY not set')
         return {
             "type": "error",
             "action": "missing_api_key",
@@ -174,11 +182,15 @@ def parse_with_claude(command: str) -> Dict[str, Any]:
         if not all(key in parsed for key in required_keys):
             raise ValueError(f"Response missing required keys: {required_keys}")
 
+        duration_ms = int((time.time() - start_time) * 1000)
+        kvlog(logger, logging.INFO, module='ai_handler', action='parse_with_claude',
+              result='ok', command_type=parsed['type'], duration_ms=duration_ms)
+
         return parsed
 
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse Claude response as JSON: {e}")
-        logger.error(f"Response was: {response_text}")
+        kvlog(logger, logging.ERROR, module='ai_handler', action='parse_with_claude',
+              error_type='JSONDecodeError', error_msg=str(e))
         return {
             "type": "error",
             "action": "parse_error",
@@ -186,7 +198,8 @@ def parse_with_claude(command: str) -> Dict[str, Any]:
             "reasoning": f"AI response was not valid JSON: {str(e)}"
         }
     except Exception as e:
-        logger.error(f"Claude API error: {e}")
+        kvlog(logger, logging.ERROR, module='ai_handler', action='parse_with_claude',
+              error_type=type(e).__name__, error_msg=str(e))
         return {
             "type": "error",
             "action": "api_error",
@@ -374,7 +387,8 @@ def execute_action(parsed_command: Dict[str, Any], dry_run: bool = False) -> Dic
         return result
 
     except Exception as e:
-        logger.error(f"Error executing action: {e}")
+        kvlog(logger, logging.ERROR, module='ai_handler', action='execute_action',
+              command_type=command_type, error_type=type(e).__name__, error_msg=str(e))
         import traceback
         traceback.print_exc()
         result["status"] = "error"
@@ -393,15 +407,21 @@ def process_command(command: str, dry_run: bool = False) -> Dict[str, Any]:
     Returns:
         Dict with status, message, and result data
     """
-    logger.info(f"Processing command: {command} (dry_run={dry_run})")
+    start_time = time.time()
+    kvlog(logger, logging.NOTICE, module='ai_handler', event='start',
+          command=command, dry_run=dry_run)
 
     # Parse with AI
     parsed = parse_with_claude(command)
-    logger.info(f"Parsed as: {parsed}")
+    kvlog(logger, logging.INFO, module='ai_handler', action='parsed',
+          command_type=parsed.get('type'), command_action=parsed.get('action'))
 
     # Execute action
     result = execute_action(parsed, dry_run=dry_run)
-    logger.info(f"Result: {result}")
+
+    total_duration_ms = int((time.time() - start_time) * 1000)
+    kvlog(logger, logging.NOTICE, module='ai_handler', event='complete',
+          status=result.get('status'), duration_ms=total_duration_ms)
 
     return result
 
@@ -417,10 +437,8 @@ def main():
 
     args = parser.parse_args()
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    # Note: basicConfig removed - should be set up by main app
+    # If running standalone, logs will go to stderr with default formatting
 
     command = ' '.join(args.command)
 

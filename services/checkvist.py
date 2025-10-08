@@ -18,7 +18,9 @@ API Docs: https://checkvist.com/auth/api
 
 import requests
 import logging
+import time
 from datetime import datetime
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +50,37 @@ class CheckvistAPI:
 
     def _get(self, endpoint, params=None):
         """Make GET request to Checkvist API"""
-        url = f"{self.BASE_URL}{endpoint}.json"
-        resp = requests.get(url, auth=self.auth, params=params, timeout=10)
-        resp.raise_for_status()
-        return resp.json()
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}{endpoint}.json"
+            resp = requests.get(url, auth=self.auth, params=params, timeout=10)
+            resp.raise_for_status()
+            result = resp.json()
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='checkvist', action='get', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return result
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='checkvist', action='get', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def _post(self, endpoint, data=None):
         """Make POST request to Checkvist API"""
-        url = f"{self.BASE_URL}{endpoint}.json"
-        resp = requests.post(url, auth=self.auth, json=data, timeout=10)
-        resp.raise_for_status()
-        return resp.json()
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}{endpoint}.json"
+            resp = requests.post(url, auth=self.auth, json=data, timeout=10)
+            resp.raise_for_status()
+            result = resp.json()
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='checkvist', action='post', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return result
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='checkvist', action='post', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def get_lists(self):
         """

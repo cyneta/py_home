@@ -16,8 +16,10 @@ API Docs: https://docs.github.com/en/rest
 
 import requests
 import logging
+import time
 import base64
 from datetime import datetime
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -50,17 +52,37 @@ class GitHubAPI:
 
     def _get(self, endpoint):
         """Make GET request to GitHub API"""
-        url = f"{self.BASE_URL}{endpoint}"
-        resp = requests.get(url, headers=self.headers, timeout=10)
-        resp.raise_for_status()
-        return resp.json()
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}{endpoint}"
+            resp = requests.get(url, headers=self.headers, timeout=10)
+            resp.raise_for_status()
+            result = resp.json()
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='github', action='get', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return result
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='github', action='get', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def _put(self, endpoint, data):
         """Make PUT request to GitHub API"""
-        url = f"{self.BASE_URL}{endpoint}"
-        resp = requests.put(url, json=data, headers=self.headers, timeout=10)
-        resp.raise_for_status()
-        return resp.json()
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}{endpoint}"
+            resp = requests.put(url, json=data, headers=self.headers, timeout=10)
+            resp.raise_for_status()
+            result = resp.json()
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='github', action='put', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return result
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='github', action='put', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def get_file_contents(self, path, branch='main'):
         """
@@ -79,19 +101,29 @@ class GitHubAPI:
         endpoint = f"/repos/{self.repo}/contents/{path}"
         params = {'ref': branch}
 
-        url = f"{self.BASE_URL}{endpoint}"
-        resp = requests.get(url, headers=self.headers, params=params, timeout=10)
-        resp.raise_for_status()
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}{endpoint}"
+            resp = requests.get(url, headers=self.headers, params=params, timeout=10)
+            resp.raise_for_status()
 
-        data = resp.json()
+            data = resp.json()
 
-        # Decode base64 content
-        content = base64.b64decode(data['content']).decode('utf-8')
+            # Decode base64 content
+            content = base64.b64decode(data['content']).decode('utf-8')
 
-        return {
-            'content': content,
-            'sha': data['sha']
-        }
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='github', action='get_file_contents', path=path, result='ok', duration_ms=duration_ms)
+
+            return {
+                'content': content,
+                'sha': data['sha']
+            }
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='github', action='get_file_contents', path=path,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def update_file(self, path, content, message, branch='main', sha=None):
         """

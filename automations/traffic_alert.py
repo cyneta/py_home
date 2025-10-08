@@ -13,9 +13,10 @@ Usage:
 
 import sys
 import logging
+import time
 from datetime import datetime
+from lib.logging_config import kvlog
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -30,8 +31,8 @@ def check_route_conditions(destination="Milwaukee, WI"):
         dict: Route conditions with warnings, delays, summary
     """
     timestamp = datetime.now().isoformat()
-    logger.info(f"Traffic alert triggered at {timestamp}")
-    logger.info(f"Checking route to: {destination}")
+    kvlog(logger, logging.INFO, automation='traffic_alert', event='check_start',
+          destination=destination, timestamp=timestamp)
 
     try:
         from services import get_travel_time, check_route_warnings
@@ -73,12 +74,15 @@ def check_route_conditions(destination="Milwaukee, WI"):
         # Create human-readable summary
         result['summary'] = create_summary(result)
 
-        logger.info(f"Route check complete: {result['alert_type']}")
+        kvlog(logger, logging.INFO, automation='traffic_alert', event='check_complete',
+              alert_type=result['alert_type'], severity=result['severity'],
+              duration_minutes=result['duration_minutes'])
 
         return result
 
     except Exception as e:
-        logger.error(f"Failed to check route: {e}")
+        kvlog(logger, logging.ERROR, automation='traffic_alert', action='check_route',
+              error_type=type(e).__name__, error_msg=str(e))
         return {
             'timestamp': timestamp,
             'destination': destination,
@@ -130,18 +134,20 @@ def run(destination="Milwaukee, WI", send_notification=True):
         destination: Where to check traffic to
         send_notification: Send notification if conditions warrant
     """
+    start_time = time.time()
+    kvlog(logger, logging.NOTICE, automation='traffic_alert', event='start',
+          destination=destination)
+
     conditions = check_route_conditions(destination)
 
     if 'error' in conditions:
-        logger.error(f"Error checking traffic: {conditions['error']}")
+        kvlog(logger, logging.ERROR, automation='traffic_alert', event='error',
+              error_msg=conditions['error'])
         return conditions
 
-    # Print summary
-    print(f"\n{'='*50}")
-    print(f"Traffic Alert: {destination}")
-    print(f"{'='*50}")
-    print(conditions['summary'])
-    print(f"{'='*50}\n")
+    # Log summary
+    kvlog(logger, logging.INFO, automation='traffic_alert', action='summary_created',
+          alert_type=conditions['alert_type'], has_warnings=conditions['has_warnings'])
 
     # Send notification if warranted
     if send_notification:
@@ -155,22 +161,30 @@ def run(destination="Milwaukee, WI", send_notification=True):
                 title = f"⚠️ Traffic Alert: {destination}"
                 message = conditions['summary']
                 send_high(message, title=title)
-                logger.info("✓ High-priority alert sent")
+                kvlog(logger, logging.INFO, automation='traffic_alert',
+                      action='notification', type='high_priority', result='sent')
 
             elif alert_type == 'advisory':
                 # Medium severity - moderate delays
                 title = f"🟡 Traffic Advisory: {destination}"
                 message = conditions['summary']
                 send(message, title=title)
-                logger.info("✓ Advisory notification sent")
+                kvlog(logger, logging.INFO, automation='traffic_alert',
+                      action='notification', type='advisory', result='sent')
 
             else:
                 # All clear - only send if explicitly requested
                 # (Don't spam with "all clear" notifications)
-                logger.info("✓ Route is clear, no notification needed")
+                kvlog(logger, logging.INFO, automation='traffic_alert',
+                      action='notification', result='skipped_clear')
 
         except Exception as e:
-            logger.warning(f"Failed to send notification: {e}")
+            kvlog(logger, logging.WARNING, automation='traffic_alert',
+                  action='notification', error_type=type(e).__name__, error_msg=str(e))
+
+    total_duration_ms = int((time.time() - start_time) * 1000)
+    kvlog(logger, logging.NOTICE, automation='traffic_alert', event='complete',
+          duration_ms=total_duration_ms, alert_type=conditions['alert_type'])
 
     return conditions
 

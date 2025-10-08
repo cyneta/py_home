@@ -11,6 +11,7 @@ import time
 import logging
 from datetime import datetime
 from typing import Dict, Optional, Tuple
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +90,9 @@ def update_location(lat: float, lng: float, trigger: str = "manual") -> Dict:
     with open(LOCATION_FILE, 'w') as f:
         json.dump(location_data, f, indent=2)
 
-    logger.info(
-        f"Location updated: {lat:.4f}, {lng:.4f} "
-        f"({distance:.0f}m from home, trigger: {trigger})"
-    )
+    kvlog(logger, logging.INFO, module='location', action='update_location',
+          lat=round(lat, 4), lng=round(lng, 4), distance_m=round(distance, 0),
+          trigger=trigger, is_home=is_home)
 
     return {
         'status': 'updated',
@@ -135,7 +135,8 @@ def get_location() -> Optional[Dict]:
         return data
 
     except Exception as e:
-        logger.error(f"Failed to read location: {e}")
+        kvlog(logger, logging.ERROR, module='location', action='get_location',
+              error_type=type(e).__name__, error_msg=str(e))
         return None
 
 
@@ -155,9 +156,11 @@ def get_eta_home() -> Optional[Dict]:
             'destination': {'lat', 'lng'}
         }
     """
+    start_time = time.time()
     location = get_location()
     if not location:
-        logger.warning("No location data available for ETA calculation")
+        kvlog(logger, logging.WARNING, module='location', action='get_eta_home',
+              result='no_location_data')
         return None
 
     from lib.config import config
@@ -184,15 +187,17 @@ def get_eta_home() -> Optional[Dict]:
             'destination': {'lat': home['lat'], 'lng': home['lng']}
         }
 
-        logger.info(
-            f"ETA home: {travel['duration_in_traffic_minutes']} min "
-            f"({travel['distance_miles']:.1f} mi, {travel['traffic_level']} traffic)"
-        )
+        duration_ms = int((time.time() - start_time) * 1000)
+        kvlog(logger, logging.INFO, module='location', action='get_eta_home',
+              result='ok', eta_minutes=travel['duration_in_traffic_minutes'],
+              distance_miles=round(travel['distance_miles'], 1),
+              traffic_level=travel['traffic_level'], duration_ms=duration_ms)
 
         return result
 
     except Exception as e:
-        logger.error(f"Failed to calculate ETA: {e}")
+        kvlog(logger, logging.ERROR, module='location', action='get_eta_home',
+              error_type=type(e).__name__, error_msg=str(e))
         return None
 
 

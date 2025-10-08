@@ -13,8 +13,10 @@ Requires Python 3.9+
 
 import asyncio
 import logging
+import time
 from kasa import Device, DeviceConfig, Credentials, DeviceConnectionParameters
 from kasa import DeviceEncryptionType, DeviceFamily
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -98,13 +100,21 @@ class TapoAPI:
             logger.info(f"[DRY-RUN] Would turn ON Tapo outlet: {outlet_name or ip}")
             return
 
-        async def _turn_on():
-            device = await self._get_device(ip)
-            await device.turn_on()
-            await device.protocol.close()
+        api_start = time.time()
+        try:
+            async def _turn_on():
+                device = await self._get_device(ip)
+                await device.turn_on()
+                await device.protocol.close()
 
-        self._run_async(_turn_on())
-        logger.info(f"Tapo outlet turned ON: {outlet_name or ip}")
+            self._run_async(_turn_on())
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='tapo', action='turn_on', outlet=outlet_name or ip, result='ok', duration_ms=duration_ms)
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='tapo', action='turn_on', outlet=outlet_name or ip,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def turn_off(self, outlet_name=None, ip=None):
         """
@@ -128,13 +138,21 @@ class TapoAPI:
             logger.info(f"[DRY-RUN] Would turn OFF Tapo outlet: {outlet_name or ip}")
             return
 
-        async def _turn_off():
-            device = await self._get_device(ip)
-            await device.turn_off()
-            await device.protocol.close()
+        api_start = time.time()
+        try:
+            async def _turn_off():
+                device = await self._get_device(ip)
+                await device.turn_off()
+                await device.protocol.close()
 
-        self._run_async(_turn_off())
-        logger.info(f"Tapo outlet turned OFF: {outlet_name or ip}")
+            self._run_async(_turn_off())
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='tapo', action='turn_off', outlet=outlet_name or ip, result='ok', duration_ms=duration_ms)
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='tapo', action='turn_off', outlet=outlet_name or ip,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def turn_on_all(self):
         """Turn on all configured outlets"""
@@ -176,44 +194,50 @@ class TapoAPI:
         if not ip:
             raise ValueError("Must specify outlet_name or ip")
 
-        async def _get_status():
-            device = await self._get_device(ip)
+        api_start = time.time()
+        try:
+            async def _get_status():
+                device = await self._get_device(ip)
 
-            result = {
-                'on': device.is_on,
-                'device_info': {
-                    'model': device.model,
-                    'alias': device.alias,
-                    'hardware_version': device.hw_info.get('hw_ver', 'unknown'),
-                    'firmware_version': device.hw_info.get('sw_ver', 'unknown'),
-                    'mac': device.mac,
-                    'rssi': device.rssi
-                }
-            }
-
-            # Try to get energy usage (P110/P125M support this)
-            try:
-                if hasattr(device, 'emeter_realtime'):
-                    emeter = await device.emeter_realtime
-                    result['energy'] = {
-                        'current_power_w': emeter.get('power', 0),
-                        'total_wh': emeter.get('total', 0)
+                result = {
+                    'on': device.is_on,
+                    'device_info': {
+                        'model': device.model,
+                        'alias': device.alias,
+                        'hardware_version': device.hw_info.get('hw_ver', 'unknown'),
+                        'firmware_version': device.hw_info.get('sw_ver', 'unknown'),
+                        'mac': device.mac,
+                        'rssi': device.rssi
                     }
-                else:
+                }
+
+                # Try to get energy usage (P110/P125M support this)
+                try:
+                    if hasattr(device, 'emeter_realtime'):
+                        emeter = await device.emeter_realtime
+                        result['energy'] = {
+                            'current_power_w': emeter.get('power', 0),
+                            'total_wh': emeter.get('total', 0)
+                        }
+                    else:
+                        result['energy'] = None
+                except Exception:
                     result['energy'] = None
-            except Exception:
-                result['energy'] = None
 
-            # Close the HTTP session properly
-            await device.protocol.close()
-            return result
+                # Close the HTTP session properly
+                await device.protocol.close()
+                return result
 
-        status = self._run_async(_get_status())
-        logger.info(
-            f"Tapo status ({outlet_name or ip}): "
-            f"{'ON' if status['on'] else 'OFF'}"
-        )
-        return status
+            status = self._run_async(_get_status())
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='tapo', action='get_status', outlet=outlet_name or ip,
+                  state='on' if status['on'] else 'off', result='ok', duration_ms=duration_ms)
+            return status
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='tapo', action='get_status', outlet=outlet_name or ip,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def list_all_status(self):
         """Get status of all configured outlets"""

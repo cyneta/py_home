@@ -31,9 +31,10 @@ Returns:
 import sys
 import json
 import logging
+import time
 from datetime import datetime
+from lib.logging_config import kvlog
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -47,9 +48,10 @@ def run(destination="Milwaukee, WI"):
     Returns:
         dict: Travel time information
     """
+    start_time = time.time()
     timestamp = datetime.now().isoformat()
-    logger.info(f"Travel time query triggered at {timestamp}")
-    logger.info(f"Destination: {destination}")
+    kvlog(logger, logging.NOTICE, automation='travel_time', event='start',
+          destination=destination)
 
     try:
         from services import get_travel_time
@@ -79,12 +81,15 @@ def run(destination="Milwaukee, WI"):
         result['message'] = message
         result['timestamp'] = timestamp
 
-        logger.info(f"✓ {message}")
+        total_duration_ms = int((time.time() - start_time) * 1000)
+        kvlog(logger, logging.NOTICE, automation='travel_time', event='complete',
+              duration_ms=total_duration_ms, travel_minutes=duration, traffic_level=traffic)
 
         return result
 
     except Exception as e:
-        logger.error(f"✗ Failed to get travel time: {e}")
+        kvlog(logger, logging.ERROR, automation='travel_time', action='get_travel_time',
+              error_type=type(e).__name__, error_msg=str(e))
         return {
             'error': str(e),
             'destination': destination,

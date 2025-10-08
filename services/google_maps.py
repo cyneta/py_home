@@ -10,8 +10,10 @@ Requires:
 """
 
 import logging
+import time
 import googlemaps
 from datetime import datetime
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,7 @@ def get_travel_time(origin, destination):
     """
     gmaps = get_client()
 
+    api_start = time.time()
     try:
         result = gmaps.distance_matrix(
             origins=origin,
@@ -94,10 +97,9 @@ def get_travel_time(origin, destination):
         distance_meters = element['distance']['value']
         distance_miles = distance_meters / 1609.34
 
-        logger.info(
-            f"Travel time from {origin} to {destination}: "
-            f"{duration_traffic_minutes} mins ({traffic} traffic)"
-        )
+        duration_ms = int((time.time() - api_start) * 1000)
+        kvlog(logger, logging.INFO, api='google_maps', action='get_travel_time',
+              origin=origin, destination=destination, traffic_level=traffic, result='ok', duration_ms=duration_ms)
 
         return {
             'distance_miles': round(distance_miles, 1),
@@ -109,7 +111,9 @@ def get_travel_time(origin, destination):
         }
 
     except Exception as e:
-        logger.error(f"Google Maps API error: {e}")
+        duration_ms = int((time.time() - api_start) * 1000)
+        kvlog(logger, logging.ERROR, api='google_maps', action='get_travel_time',
+              origin=origin, destination=destination, error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
         raise
 
 
@@ -131,6 +135,7 @@ def check_route_warnings(origin, destination):
     """
     gmaps = get_client()
 
+    api_start = time.time()
     try:
         directions = gmaps.directions(
             origin=origin,
@@ -152,11 +157,15 @@ def check_route_warnings(origin, destination):
             if summary:
                 logger.info(f"Route summary: {summary}")
 
-        logger.info(f"Found {len(warnings)} warnings for route")
+        duration_ms = int((time.time() - api_start) * 1000)
+        kvlog(logger, logging.INFO, api='google_maps', action='check_route_warnings',
+              origin=origin, destination=destination, warnings_count=len(warnings), result='ok', duration_ms=duration_ms)
         return warnings
 
     except Exception as e:
-        logger.error(f"Google Maps API error: {e}")
+        duration_ms = int((time.time() - api_start) * 1000)
+        kvlog(logger, logging.ERROR, api='google_maps', action='check_route_warnings',
+              origin=origin, destination=destination, error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
         raise
 
 

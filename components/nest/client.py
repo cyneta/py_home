@@ -14,7 +14,9 @@ See docs/NEST_API_SETUP.md for detailed setup instructions.
 
 import requests
 import logging
+import time
 from datetime import datetime, timedelta
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -59,47 +61,75 @@ class NestAPI:
         # Get new access token using refresh token
         logger.info("Refreshing Nest API access token")
 
-        resp = requests.post(self.TOKEN_URL, data={
-            'client_id': self.client_id,
-            'client_secret': self.client_secret,
-            'refresh_token': self.refresh_token,
-            'grant_type': 'refresh_token'
-        })
+        api_start = time.time()
+        try:
+            resp = requests.post(self.TOKEN_URL, data={
+                'client_id': self.client_id,
+                'client_secret': self.client_secret,
+                'refresh_token': self.refresh_token,
+                'grant_type': 'refresh_token'
+            })
 
-        resp.raise_for_status()
-        data = resp.json()
+            resp.raise_for_status()
+            data = resp.json()
 
-        self.access_token = data['access_token']
-        # Tokens typically expire in 3600 seconds, refresh early
-        expires_in = data.get('expires_in', 3600)
-        self.token_expiry = datetime.now() + timedelta(seconds=expires_in - 300)
+            self.access_token = data['access_token']
+            # Tokens typically expire in 3600 seconds, refresh early
+            expires_in = data.get('expires_in', 3600)
+            self.token_expiry = datetime.now() + timedelta(seconds=expires_in - 300)
 
-        logger.info("Access token refreshed successfully")
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='nest', action='token_refresh', result='ok', duration_ms=duration_ms)
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='nest', action='token_refresh',
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def _get(self, endpoint):
         """GET request to Nest API"""
         self._ensure_token()
 
-        url = f"{self.BASE_URL}/{endpoint}"
-        resp = requests.get(url, headers={
-            "Authorization": f"Bearer {self.access_token}"
-        })
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}/{endpoint}"
+            resp = requests.get(url, headers={
+                "Authorization": f"Bearer {self.access_token}"
+            })
 
-        resp.raise_for_status()
-        return resp.json()
+            resp.raise_for_status()
+            result = resp.json()
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='nest', action='get', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return result
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='nest', action='get', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def _post(self, endpoint, data):
         """POST request to Nest API"""
         self._ensure_token()
 
-        url = f"{self.BASE_URL}/{endpoint}"
-        resp = requests.post(url,
-            headers={"Authorization": f"Bearer {self.access_token}"},
-            json=data
-        )
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}/{endpoint}"
+            resp = requests.post(url,
+                headers={"Authorization": f"Bearer {self.access_token}"},
+                json=data
+            )
 
-        resp.raise_for_status()
-        return resp.json()
+            resp.raise_for_status()
+            result = resp.json()
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='nest', action='post', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return result
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='nest', action='post', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def get_status(self):
         """

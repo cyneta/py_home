@@ -18,9 +18,10 @@ Usage:
 import logging
 import os
 import sys
+import time
 from datetime import datetime
+from lib.logging_config import kvlog
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Check for dry-run mode
@@ -29,19 +30,10 @@ DRY_RUN = os.environ.get('DRY_RUN', 'false').lower() == 'true' or '--dry-run' in
 
 def run():
     """Execute I'm home automation"""
-    timestamp = datetime.now().isoformat()
+    start_time = time.time()
+    kvlog(logger, logging.NOTICE, automation='im_home', event='start', dry_run=DRY_RUN)
 
-    if DRY_RUN:
-        logger.info(f"[DRY-RUN] I'm home automation triggered at {timestamp}")
-    else:
-        logger.info(f"I'm home automation triggered at {timestamp}")
-
-    results = {
-        'timestamp': timestamp,
-        'action': 'im_home',
-        'message': 'Welcome home routine',
-        'errors': []
-    }
+    errors = []
 
     # 1. Set Nest to comfort temperature
     try:
@@ -50,53 +42,51 @@ def run():
 
         comfort_temp = config['nest']['comfort_temp']
         nest = NestAPI(dry_run=DRY_RUN)
+
+        api_start = time.time()
         nest.set_temperature(comfort_temp)
-        results['nest'] = f'Set to {comfort_temp}°F (comfort mode)'
-        logger.info(f"✓ Nest set to comfort temp: {comfort_temp}°F")
+        duration_ms = int((time.time() - api_start) * 1000)
+
+        kvlog(logger, logging.NOTICE, automation='im_home', device='nest',
+              action='set_temp', target=comfort_temp, result='ok', duration_ms=duration_ms)
     except Exception as e:
-        logger.error(f"✗ Failed to set Nest: {e}")
-        results['errors'].append(f"Nest: {e}")
+        kvlog(logger, logging.ERROR, automation='im_home', device='nest',
+              action='set_temp', error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Nest: {e}")
 
     # 2. Future: Turn on entry lights
     # Will be implemented when additional Tapo devices are configured
-    results['lights'] = 'Not configured yet'
 
     # 3. Send notification
-    if DRY_RUN:
-        logger.info("[DRY-RUN] Would send notification: 'Welcome home! House is ready.'")
-        results['notification'] = 'Skipped (dry-run)'
-    else:
-        try:
+    try:
+        if not DRY_RUN:
             from lib.notifications import send_low
 
-            if results['errors']:
-                message = f"Welcome home (with {len(results['errors'])} errors)"
-                send_low(message, title="🏡 Welcome Home")
+            if errors:
+                message = f"Welcome home (with {len(errors)} errors)"
+                send_low(message, title="Welcome Home")
             else:
-                send_low("Welcome home! House is ready.", title="🏡 Welcome Home")
+                send_low("Welcome home! House is ready.", title="Welcome Home")
 
-            results['notification'] = 'Sent'
-            logger.info("✓ Notification sent")
-        except Exception as e:
-            logger.error(f"✗ Failed to send notification: {e}")
-            results['errors'].append(f"Notification: {e}")
+            kvlog(logger, logging.INFO, automation='im_home', action='notification', result='sent')
+        else:
+            kvlog(logger, logging.DEBUG, automation='im_home', action='notification', result='skipped_dry_run')
+    except Exception as e:
+        kvlog(logger, logging.ERROR, automation='im_home', action='notification',
+              error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Notification: {e}")
 
-    # Summary
-    status = "SUCCESS" if not results['errors'] else "PARTIAL"
-    logger.info(f"\n{'='*50}")
-    logger.info(f"I'm Home Automation: {status}")
-    logger.info(f"  Nest: {results.get('nest', 'FAILED')}")
-    logger.info(f"  Lights: {results.get('lights', 'FAILED')}")
-    logger.info(f"  Notification: {results.get('notification', 'FAILED')}")
+    # Complete
+    total_duration_ms = int((time.time() - start_time) * 1000)
+    kvlog(logger, logging.NOTICE, automation='im_home', event='complete',
+          duration_ms=total_duration_ms, errors=len(errors))
 
-    if results['errors']:
-        logger.info(f"\nErrors:")
-        for error in results['errors']:
-            logger.info(f"  - {error}")
-
-    logger.info(f"{'='*50}\n")
-
-    return results
+    return {
+        'action': 'im_home',
+        'status': 'success' if not errors else 'partial',
+        'errors': errors,
+        'duration_ms': total_duration_ms
+    }
 
 
 if __name__ == '__main__':

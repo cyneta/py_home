@@ -11,6 +11,8 @@ Setup:
 
 import requests
 import logging
+import time
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -43,43 +45,73 @@ class SensiboAPI:
             params = {}
         params['apiKey'] = self.api_key
 
-        url = f"{self.BASE_URL}/{endpoint}"
-        resp = requests.get(url, params=params)
-        resp.raise_for_status()
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}/{endpoint}"
+            resp = requests.get(url, params=params)
+            resp.raise_for_status()
 
-        data = resp.json()
-        if data.get('status') != 'success':
-            raise Exception(f"Sensibo API error: {data}")
+            data = resp.json()
+            if data.get('status') != 'success':
+                raise Exception(f"Sensibo API error: {data}")
 
-        return data.get('result')
+            result = data.get('result')
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='sensibo', action='get', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return result
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='sensibo', action='get', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def _patch(self, endpoint, data):
         """PATCH request to Sensibo API"""
-        url = f"{self.BASE_URL}/{endpoint}"
-        params = {'apiKey': self.api_key}
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}/{endpoint}"
+            params = {'apiKey': self.api_key}
 
-        resp = requests.patch(url, params=params, json=data)
-        resp.raise_for_status()
+            resp = requests.patch(url, params=params, json=data)
+            resp.raise_for_status()
 
-        result = resp.json()
-        if result.get('status') != 'success':
-            raise Exception(f"Sensibo API error: {result}")
+            result = resp.json()
+            if result.get('status') != 'success':
+                raise Exception(f"Sensibo API error: {result}")
 
-        return result.get('result')
+            res = result.get('result')
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='sensibo', action='patch', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return res
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='sensibo', action='patch', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def _post(self, endpoint, data):
         """POST request to Sensibo API"""
-        url = f"{self.BASE_URL}/{endpoint}"
-        params = {'apiKey': self.api_key}
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}/{endpoint}"
+            params = {'apiKey': self.api_key}
 
-        resp = requests.post(url, params=params, json=data)
-        resp.raise_for_status()
+            resp = requests.post(url, params=params, json=data)
+            resp.raise_for_status()
 
-        result = resp.json()
-        if result.get('status') != 'success':
-            raise Exception(f"Sensibo API error: {result}")
+            result = resp.json()
+            if result.get('status') != 'success':
+                raise Exception(f"Sensibo API error: {result}")
 
-        return result.get('result')
+            res = result.get('result')
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='sensibo', action='post', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return res
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='sensibo', action='post', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def list_devices(self):
         """

@@ -13,6 +13,8 @@ API Docs: https://openweathermap.org/api
 
 import requests
 import logging
+import time
+from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +52,21 @@ class OpenWeatherAPI:
         params['appid'] = self.api_key
         params['units'] = self.units
 
-        url = f"{self.BASE_URL}/{endpoint}"
-        resp = requests.get(url, params=params, timeout=10)
-        resp.raise_for_status()
+        api_start = time.time()
+        try:
+            url = f"{self.BASE_URL}/{endpoint}"
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
 
-        return resp.json()
+            result = resp.json()
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.INFO, api='openweather', action='get', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            return result
+        except Exception as e:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='openweather', action='get', endpoint=endpoint,
+                  error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
+            raise
 
     def get_current_weather(self, location=None, lat=None, lon=None):
         """

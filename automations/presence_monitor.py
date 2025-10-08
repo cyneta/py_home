@@ -16,10 +16,11 @@ Usage:
 import os
 import sys
 import logging
+import time
 import subprocess
 from datetime import datetime
+from lib.logging_config import kvlog
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # State file to track previous presence
@@ -41,7 +42,8 @@ def get_previous_state():
             state = f.read().strip().lower()
             return state == 'home'
     except Exception as e:
-        logger.error(f"Failed to read state file: {e}")
+        kvlog(logger, logging.ERROR, automation='presence_monitor', action='read_state',
+              error_type=type(e).__name__, error_msg=str(e))
         return None
 
 
@@ -56,7 +58,8 @@ def save_state(is_home):
         with open(STATE_FILE, 'w') as f:
             f.write('home' if is_home else 'away')
     except Exception as e:
-        logger.error(f"Failed to save state: {e}")
+        kvlog(logger, logging.ERROR, automation='presence_monitor', action='save_state',
+              error_type=type(e).__name__, error_msg=str(e))
 
 
 def check_presence():
@@ -66,13 +69,15 @@ def check_presence():
     Returns:
         bool: True if home, False if away
     """
+    api_start = time.time()
     try:
         from lib.config import config
         from components.network import is_device_home
 
         # Get device config
         if 'presence' not in config or 'devices' not in config['presence']:
-            logger.warning("No presence.devices configured in config.yaml")
+            kvlog(logger, logging.WARNING, automation='presence_monitor', action='check_presence',
+                  error_type='ConfigError', error_msg='No presence.devices configured')
             return False
 
         devices = config['presence']['devices']
@@ -89,7 +94,8 @@ def check_presence():
                 primary_device = devices[device_names[0]]
 
         if not primary_device:
-            logger.error("No primary device configured")
+            kvlog(logger, logging.ERROR, automation='presence_monitor', action='check_presence',
+                  error_type='ConfigError', error_msg='No primary device configured')
             return False
 
         # Get device identifier (prefer MAC over IP)
@@ -97,19 +103,25 @@ def check_presence():
         method = primary_device.get('method', 'auto')
 
         if not identifier:
-            logger.error("Device has no IP or MAC configured")
+            kvlog(logger, logging.ERROR, automation='presence_monitor', action='check_presence',
+                  error_type='ConfigError', error_msg='Device has no IP or MAC configured')
             return False
 
         # Check if device is home
         is_home = is_device_home(identifier, method=method)
+        duration_ms = int((time.time() - api_start) * 1000)
 
         device_name = primary_device.get('name', 'Device')
-        logger.info(f"{device_name} ({identifier}): {'HOME' if is_home else 'AWAY'}")
+        kvlog(logger, logging.INFO, automation='presence_monitor', action='check_presence',
+              device=device_name, identifier=identifier, status='home' if is_home else 'away',
+              result='ok', duration_ms=duration_ms)
 
         return is_home
 
     except Exception as e:
-        logger.error(f"Failed to check presence: {e}")
+        duration_ms = int((time.time() - api_start) * 1000)
+        kvlog(logger, logging.ERROR, automation='presence_monitor', action='check_presence',
+              error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
         return False
 
 
@@ -123,11 +135,14 @@ def trigger_automation(script_name):
     script_path = os.path.join(os.path.dirname(__file__), script_name)
 
     if not os.path.exists(script_path):
-        logger.error(f"Script not found: {script_path}")
+        kvlog(logger, logging.ERROR, automation='presence_monitor', action='trigger_automation',
+              script=script_name, error_type='FileNotFound', error_msg=f'Script not found: {script_path}')
         return False
 
+    api_start = time.time()
     try:
-        logger.info(f"Triggering automation: {script_name}")
+        kvlog(logger, logging.INFO, automation='presence_monitor', action='trigger_automation',
+              script=script_name, status='starting')
 
         result = subprocess.run(
             [sys.executable, script_path],
@@ -136,25 +151,37 @@ def trigger_automation(script_name):
             timeout=60
         )
 
+        duration_ms = int((time.time() - api_start) * 1000)
+
         if result.returncode == 0:
-            logger.info(f"✓ {script_name} completed successfully")
+            kvlog(logger, logging.NOTICE, automation='presence_monitor', action='trigger_automation',
+                  script=script_name, result='ok', duration_ms=duration_ms)
             return True
         else:
-            logger.error(f"✗ {script_name} failed: {result.stderr}")
+            kvlog(logger, logging.ERROR, automation='presence_monitor', action='trigger_automation',
+                  script=script_name, error_type='ScriptFailed', error_msg=result.stderr,
+                  duration_ms=duration_ms)
             return False
 
     except subprocess.TimeoutExpired:
-        logger.error(f"✗ {script_name} timed out")
+        duration_ms = int((time.time() - api_start) * 1000)
+        kvlog(logger, logging.ERROR, automation='presence_monitor', action='trigger_automation',
+              script=script_name, error_type='TimeoutExpired', error_msg='Script timed out',
+              duration_ms=duration_ms)
         return False
     except Exception as e:
-        logger.error(f"✗ Failed to run {script_name}: {e}")
+        duration_ms = int((time.time() - api_start) * 1000)
+        kvlog(logger, logging.ERROR, automation='presence_monitor', action='trigger_automation',
+              script=script_name, error_type=type(e).__name__, error_msg=str(e),
+              duration_ms=duration_ms)
         return False
 
 
 def run():
     """Execute presence monitoring"""
+    start_time = time.time()
     timestamp = datetime.now().isoformat()
-    logger.info(f"Presence monitor triggered at {timestamp}")
+    kvlog(logger, logging.NOTICE, automation='presence_monitor', event='start', timestamp=timestamp)
 
     # Check current presence
     currently_home = check_presence()
@@ -164,8 +191,14 @@ def run():
 
     # Log state
     if was_home is None:
-        logger.info("First run - initializing state")
+        kvlog(logger, logging.INFO, automation='presence_monitor', action='initialize',
+              state='home' if currently_home else 'away')
         save_state(currently_home)
+
+        total_duration_ms = int((time.time() - start_time) * 1000)
+        kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+              duration_ms=total_duration_ms)
+
         return {
             'timestamp': timestamp,
             'action': 'initialize',
@@ -175,7 +208,8 @@ def run():
     # Detect state CHANGE
     if currently_home and not was_home:
         # ARRIVED HOME
-        logger.info("🟢 DETECTED: Arrived home")
+        kvlog(logger, logging.NOTICE, automation='presence_monitor', action='state_change',
+              change='arrived', prev_state='away', new_state='home')
 
         # Trigger im_home automation
         trigger_automation('im_home.py')
@@ -187,8 +221,14 @@ def run():
         try:
             from lib.notifications import send_low
             send_low("Welcome home! (detected via WiFi)", title="🏡 Arrived Home")
+            kvlog(logger, logging.INFO, automation='presence_monitor', action='notification', result='sent')
         except Exception as e:
-            logger.warning(f"Failed to send notification: {e}")
+            kvlog(logger, logging.ERROR, automation='presence_monitor', action='notification',
+                  error_type=type(e).__name__, error_msg=str(e))
+
+        total_duration_ms = int((time.time() - start_time) * 1000)
+        kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+              duration_ms=total_duration_ms)
 
         return {
             'timestamp': timestamp,
@@ -199,7 +239,8 @@ def run():
 
     elif not currently_home and was_home:
         # LEFT HOME
-        logger.info("🔴 DETECTED: Left home")
+        kvlog(logger, logging.NOTICE, automation='presence_monitor', action='state_change',
+              change='departed', prev_state='home', new_state='away')
 
         # Trigger leaving_home automation
         trigger_automation('leaving_home.py')
@@ -211,8 +252,14 @@ def run():
         try:
             from lib.notifications import send_low
             send_low("House set to away mode (detected via WiFi)", title="🚗 Left Home")
+            kvlog(logger, logging.INFO, automation='presence_monitor', action='notification', result='sent')
         except Exception as e:
-            logger.warning(f"Failed to send notification: {e}")
+            kvlog(logger, logging.ERROR, automation='presence_monitor', action='notification',
+                  error_type=type(e).__name__, error_msg=str(e))
+
+        total_duration_ms = int((time.time() - start_time) * 1000)
+        kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+              duration_ms=total_duration_ms)
 
         return {
             'timestamp': timestamp,
@@ -224,7 +271,12 @@ def run():
     else:
         # NO CHANGE
         state_name = 'home' if currently_home else 'away'
-        logger.info(f"No change - still {state_name}")
+        kvlog(logger, logging.INFO, automation='presence_monitor', action='no_change',
+              state=state_name)
+
+        total_duration_ms = int((time.time() - start_time) * 1000)
+        kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+              duration_ms=total_duration_ms)
 
         return {
             'timestamp': timestamp,
@@ -235,11 +287,3 @@ def run():
 
 if __name__ == '__main__':
     result = run()
-
-    # Print summary
-    print(f"\nPresence Monitor Results:")
-    print(f"  Action: {result['action']}")
-    print(f"  State: {result['state']}")
-
-    if 'automation' in result:
-        print(f"  Automation: {result['automation']}")

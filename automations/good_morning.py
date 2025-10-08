@@ -19,9 +19,10 @@ Usage:
 import logging
 import os
 import sys
+import time
 from datetime import datetime
+from lib.logging_config import kvlog
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Check for dry-run mode
@@ -30,19 +31,10 @@ DRY_RUN = os.environ.get('DRY_RUN', 'false').lower() == 'true' or '--dry-run' in
 
 def run():
     """Execute good morning automation"""
-    timestamp = datetime.now().isoformat()
+    start_time = time.time()
+    kvlog(logger, logging.NOTICE, automation='good_morning', event='start', dry_run=DRY_RUN)
 
-    if DRY_RUN:
-        logger.info(f"[DRY-RUN] Good morning automation triggered at {timestamp}")
-    else:
-        logger.info(f"Good morning automation triggered at {timestamp}")
-
-    results = {
-        'timestamp': timestamp,
-        'action': 'good_morning',
-        'message': 'Morning routine',
-        'errors': []
-    }
+    errors = []
 
     # 1. Set Nest to comfort temperature
     try:
@@ -50,72 +42,75 @@ def run():
 
         comfort_temp = 70
         nest = NestAPI(dry_run=DRY_RUN)
+
+        api_start = time.time()
         nest.set_temperature(comfort_temp)
-        results['nest'] = f'Set to {comfort_temp}°F'
-        logger.info(f"✓ Nest set to {comfort_temp}°F")
+        duration_ms = int((time.time() - api_start) * 1000)
+
+        kvlog(logger, logging.NOTICE, automation='good_morning', device='nest',
+              action='set_temp', target=comfort_temp, result='ok', duration_ms=duration_ms)
     except Exception as e:
-        logger.error(f"✗ Failed to set Nest: {e}")
-        results['errors'].append(f"Nest: {e}")
+        kvlog(logger, logging.ERROR, automation='good_morning', device='nest',
+              action='set_temp', error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Nest: {e}")
 
     # 2. Get weather forecast
+    weather_summary = "Weather unavailable"
     try:
         from services import get_weather_summary
 
+        api_start = time.time()
         weather_summary = get_weather_summary()
-        results['weather'] = weather_summary
-        logger.info(f"✓ Weather: {weather_summary}")
+        duration_ms = int((time.time() - api_start) * 1000)
+
+        kvlog(logger, logging.NOTICE, automation='good_morning', service='weather',
+              action='get_summary', result='ok', duration_ms=duration_ms)
     except Exception as e:
-        logger.error(f"✗ Failed to get weather: {e}")
-        results['errors'].append(f"Weather: {e}")
-        weather_summary = "Weather unavailable"
+        kvlog(logger, logging.ERROR, automation='good_morning', service='weather',
+              action='get_summary', error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Weather: {e}")
 
     # 3. Future: Turn on coffee maker
     # Uncomment when coffee maker outlet is identified
     # try:
     #     from components.tapo import turn_on
+    #     api_start = time.time()
     #     turn_on("Heater")  # Replace with actual coffee maker name
-    #     results['coffee'] = 'Coffee maker started'
-    #     logger.info("✓ Coffee maker turned on")
+    #     duration_ms = int((time.time() - api_start) * 1000)
+    #     kvlog(logger, logging.NOTICE, automation='good_morning', device='coffee_maker',
+    #           action='turn_on', result='ok', duration_ms=duration_ms)
     # except Exception as e:
-    #     logger.error(f"✗ Failed to turn on coffee maker: {e}")
-    #     results['errors'].append(f"Coffee: {e}")
-
-    results['coffee'] = 'Not configured yet'
+    #     kvlog(logger, logging.ERROR, automation='good_morning', device='coffee_maker',
+    #           action='turn_on', error_type=type(e).__name__, error_msg=str(e))
+    #     errors.append(f"Coffee: {e}")
 
     # 4. Send morning summary notification
-    if DRY_RUN:
-        logger.info(f"[DRY-RUN] Would send notification: 'Good morning! {weather_summary}'")
-        results['notification'] = 'Skipped (dry-run)'
-    else:
-        try:
+    try:
+        if not DRY_RUN:
             from lib.notifications import send
 
             notification_msg = f"Good morning! {weather_summary}"
+            send(notification_msg, title="Good Morning")
 
-            send(notification_msg, title="☀️ Good Morning")
-            results['notification'] = 'Sent'
-            logger.info("✓ Notification sent")
-        except Exception as e:
-            logger.error(f"✗ Failed to send notification: {e}")
-            results['errors'].append(f"Notification: {e}")
+            kvlog(logger, logging.INFO, automation='good_morning', action='notification', result='sent')
+        else:
+            kvlog(logger, logging.DEBUG, automation='good_morning', action='notification', result='skipped_dry_run')
+    except Exception as e:
+        kvlog(logger, logging.ERROR, automation='good_morning', action='notification',
+              error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Notification: {e}")
 
-    # Summary
-    status = "SUCCESS" if not results['errors'] else "PARTIAL"
-    logger.info(f"\n{'='*50}")
-    logger.info(f"Good Morning Automation: {status}")
-    logger.info(f"  Nest: {results.get('nest', 'FAILED')}")
-    logger.info(f"  Weather: {results.get('weather', 'FAILED')}")
-    logger.info(f"  Coffee: {results.get('coffee', 'FAILED')}")
-    logger.info(f"  Notification: {results.get('notification', 'FAILED')}")
+    # Complete
+    total_duration_ms = int((time.time() - start_time) * 1000)
+    kvlog(logger, logging.NOTICE, automation='good_morning', event='complete',
+          duration_ms=total_duration_ms, errors=len(errors))
 
-    if results['errors']:
-        logger.info(f"\nErrors:")
-        for error in results['errors']:
-            logger.info(f"  - {error}")
-
-    logger.info(f"{'='*50}\n")
-
-    return results
+    return {
+        'action': 'good_morning',
+        'status': 'success' if not errors else 'partial',
+        'errors': errors,
+        'duration_ms': total_duration_ms
+    }
 
 
 if __name__ == '__main__':

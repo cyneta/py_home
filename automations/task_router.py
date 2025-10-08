@@ -18,10 +18,11 @@ Usage:
 
 import sys
 import logging
+import time
 import re
 from datetime import datetime
+from lib.logging_config import kvlog
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -35,6 +36,7 @@ def classify_task_ai(task_text):
     Returns:
         str: 'github', 'work', 'personal', or None if AI unavailable
     """
+    api_start = time.time()
     try:
         import anthropic
         import os
@@ -42,7 +44,8 @@ def classify_task_ai(task_text):
         # Get API key from environment
         api_key = os.getenv('ANTHROPIC_API_KEY')
         if not api_key:
-            logger.warning("ANTHROPIC_API_KEY not set, falling back to keyword classification")
+            kvlog(logger, logging.WARNING, automation='task_router', action='ai_classify',
+                  error_type='ConfigError', error_msg='ANTHROPIC_API_KEY not set')
             return None
 
         # Initialize Claude client
@@ -69,17 +72,23 @@ Respond with ONLY the category name (github/work/personal), nothing else."""
         )
 
         classification = message.content[0].text.strip().lower()
+        duration_ms = int((time.time() - api_start) * 1000)
 
         # Validate response
         if classification in ['github', 'work', 'personal']:
-            logger.info(f"AI classified as: {classification}")
+            kvlog(logger, logging.INFO, automation='task_router', action='ai_classify',
+                  classification=classification, result='ok', duration_ms=duration_ms)
             return classification
         else:
-            logger.warning(f"AI returned invalid classification: {classification}")
+            kvlog(logger, logging.WARNING, automation='task_router', action='ai_classify',
+                  error_type='InvalidResponse', error_msg=f'Invalid classification: {classification}',
+                  duration_ms=duration_ms)
             return None
 
     except Exception as e:
-        logger.warning(f"AI classification failed: {e}")
+        duration_ms = int((time.time() - api_start) * 1000)
+        kvlog(logger, logging.WARNING, automation='task_router', action='ai_classify',
+              error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
         return None
 
 
@@ -154,7 +163,8 @@ def classify_task(task_text, use_ai=True):
             return ai_result
 
     # Fall back to keyword classification
-    logger.info("Using keyword-based classification")
+    kvlog(logger, logging.INFO, automation='task_router', action='classify',
+          method='keywords')
     return classify_task_keywords(task_text)
 
 
@@ -168,12 +178,13 @@ def run(task_text):
     Returns:
         dict: Routing result
     """
+    start_time = time.time()
     timestamp = datetime.now().isoformat()
-    logger.info(f"Task router triggered at {timestamp}")
-    logger.info(f"Task: {task_text}")
+    kvlog(logger, logging.NOTICE, automation='task_router', event='start', task=task_text)
 
     classification = classify_task(task_text)
-    logger.info(f"Classification: {classification}")
+    kvlog(logger, logging.INFO, automation='task_router', action='classify',
+          classification=classification)
 
     result = {
         'timestamp': timestamp,
@@ -187,34 +198,47 @@ def run(task_text):
             # Add to GitHub TODO.md
             from services import add_task as github_add_task
 
+            api_start = time.time()
             github_result = github_add_task(task_text)
+            duration_ms = int((time.time() - api_start) * 1000)
+
             result['status'] = 'added_to_github'
             result['commit'] = github_result.get('commit')
-            logger.info(f"✓ Added to GitHub: {task_text}")
+            kvlog(logger, logging.NOTICE, automation='task_router', action='add_task',
+                  destination='github', result='ok', duration_ms=duration_ms)
 
         elif classification == 'work':
             # Add to Checkvist work list
             from services.checkvist import add_task as checkvist_add_task
 
+            api_start = time.time()
             checkvist_result = checkvist_add_task('work', task_text)
+            duration_ms = int((time.time() - api_start) * 1000)
+
             result['status'] = 'added_to_checkvist_work'
             result['task_id'] = checkvist_result.get('task_id')
-            logger.info(f"✓ Added to Checkvist (work): {task_text}")
+            kvlog(logger, logging.NOTICE, automation='task_router', action='add_task',
+                  destination='checkvist_work', result='ok', duration_ms=duration_ms)
 
         elif classification == 'personal':
             # Add to Checkvist personal list
             from services.checkvist import add_task as checkvist_add_task
 
+            api_start = time.time()
             checkvist_result = checkvist_add_task('personal', task_text)
+            duration_ms = int((time.time() - api_start) * 1000)
+
             result['status'] = 'added_to_checkvist_personal'
             result['task_id'] = checkvist_result.get('task_id')
-            logger.info(f"✓ Added to Checkvist (personal): {task_text}")
+            kvlog(logger, logging.NOTICE, automation='task_router', action='add_task',
+                  destination='checkvist_personal', result='ok', duration_ms=duration_ms)
 
         else:
             # Fallback - return instruction for Apple Reminders
             result['status'] = 'use_reminders'
             result['message'] = f"Please add to Reminders: {task_text}"
-            logger.info(f"→ Use Apple Reminders for: {task_text}")
+            kvlog(logger, logging.INFO, automation='task_router', action='fallback',
+                  destination='apple_reminders')
 
         # Send notification
         try:
@@ -222,30 +246,30 @@ def run(task_text):
 
             if result['status'].startswith('added'):
                 send_low(f"Task added: {task_text}", title="✓ Task Captured")
+                kvlog(logger, logging.INFO, automation='task_router', action='notification',
+                      result='sent')
         except Exception as e:
-            logger.warning(f"Failed to send notification: {e}")
+            kvlog(logger, logging.ERROR, automation='task_router', action='notification',
+                  error_type=type(e).__name__, error_msg=str(e))
 
     except Exception as e:
-        logger.error(f"✗ Failed to route task: {e}")
+        kvlog(logger, logging.ERROR, automation='task_router', action='route_task',
+              error_type=type(e).__name__, error_msg=str(e))
         result['status'] = 'error'
         result['error'] = str(e)
+
+    total_duration_ms = int((time.time() - start_time) * 1000)
+    kvlog(logger, logging.NOTICE, automation='task_router', event='complete',
+          duration_ms=total_duration_ms, status=result['status'])
 
     return result
 
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python task_router.py <task text>")
-        print("Example: python task_router.py 'Fix bug in leaving_home.py'")
+        kvlog(logger, logging.ERROR, automation='task_router', error_type='UsageError',
+              error_msg='No task text provided')
         sys.exit(1)
 
     task_text = ' '.join(sys.argv[1:])
     result = run(task_text)
-
-    # Print result
-    print(f"\nTask: {result['task']}")
-    print(f"Classification: {result['classification']}")
-    print(f"Status: {result['status']}")
-
-    if 'error' in result:
-        print(f"Error: {result['error']}")
