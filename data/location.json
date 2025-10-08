@@ -1,0 +1,8 @@
+{
+  "lat": 45.4465,
+  "lng": -122.6393,
+  "trigger": "near_home",
+  "timestamp": "2025-10-08T16:04:22.309854Z",
+  "distance_from_home_meters": 91639.3,
+  "is_home": false
+}

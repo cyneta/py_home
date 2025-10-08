@@ -9,7 +9,10 @@
       "Bash(timeout:*)",
       "Bash(git reset:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(curl -X POST http://127.0.0.1:5000/automation/leaving_home -H \"Content-Type: application/json\" -d \"{\"\"dry_run\"\": true}\")",
+      "Bash(curl -X GET http://127.0.0.1:5000/status)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
