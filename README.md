@@ -95,13 +95,16 @@ py_home/
 │   └── py_home.service # Systemd service file
 │
 ├── automations/         # Home automation scripts
-│   ├── leaving_home.py     # Away mode (Nest away, outlets off)
-│   ├── goodnight.py        # Sleep mode (AC off, outlets off)
-│   ├── im_home.py          # Welcome home (Nest comfort)
-│   ├── good_morning.py     # Morning routine (weather + Nest)
-│   ├── travel_time.py      # Traffic-aware travel time
-│   ├── task_router.py      # Smart task routing
-│   └── temp_coordination.py # HVAC coordination (cron)
+│   ├── leaving_home.py         # Away mode (Nest away, outlets off)
+│   ├── goodnight.py            # Sleep mode (AC off, outlets off)
+│   ├── im_home.py              # Welcome home (Nest comfort)
+│   ├── good_morning.py         # Morning routine (weather + Nest)
+│   ├── travel_time.py          # Traffic-aware travel time
+│   ├── task_router.py          # Smart task routing
+│   ├── temp_coordination.py    # HVAC coordination (cron)
+│   ├── tempstick_monitor.py    # Temp/humidity monitoring (cron)
+│   ├── air_quality_monitor.py  # PM2.5 air quality monitoring (cron)
+│   └── presence_monitor.py     # WiFi presence detection (cron)
 │
 ├── components/          # Self-contained device packages
 │   ├── tapo/           # TP-Link Tapo smart plugs (4 devices)
@@ -113,13 +116,15 @@ py_home/
 ├── services/            # External API services
 │   ├── google_maps.py  # Travel time & traffic (Google Maps API)
 │   ├── openweather.py  # Weather data (OpenWeatherMap API)
+│   ├── tempstick.py    # WiFi temperature/humidity sensor API
 │   ├── github.py       # Voice task → GitHub commits
 │   └── checkvist.py    # Task management (Checkvist API)
 │
 ├── lib/                 # Shared utilities
 │   ├── config.py       # Configuration loader (YAML + .env)
 │   ├── logging_config.py # Structured logging (RFC 5424-compatible)
-│   └── notifications.py # Push notifications (Pushover/ntfy)
+│   ├── notifications.py # Push notifications (Pushover/ntfy)
+│   └── alert_state.py  # Rate limiting for notifications
 │
 ├── config/              # Configuration
 │   ├── config.yaml     # Device configs, thresholds, locations
@@ -228,12 +233,14 @@ See `server/README.md` for complete server documentation.
 
 ### Scheduled (Cron Jobs)
 - **temp_coordination.py** - Coordinate Nest + Sensibo every 15 minutes
+- **tempstick_monitor.py** - Temperature/humidity alerts every 30 minutes
+- **air_quality_monitor.py** - PM2.5 air quality monitoring every 30 minutes
 - **presence_monitor.py** - WiFi-based home/away detection every 5 minutes
 
 All scripts include:
 - Error handling
-- Logging
-- Notification integration
+- Structured logging
+- Notification integration with rate limiting
 - Results summary
 
 ---
@@ -310,13 +317,14 @@ See component READMEs for credential setup.
 # Comprehensive test suite with pytest
 python -m pytest tests/ -v
 
-# Expected: 88+ passing tests
+# Expected: 115+ passing tests
 # ✓ Configuration & config loading
-# ✓ All component integrations (Tapo, Nest, Sensibo, Tuya)
+# ✓ All component integrations (Tapo, Nest, Sensibo, Tuya, Temp Stick)
 # ✓ Automation workflows
 # ✓ Error handling
 # ✓ Flask endpoints
 # ✓ AI handler
+# ✓ Notification system (validation, rate limiting, backends)
 # ✓ Logging system (including RFC 5424 quoting)
 
 # Quick smoke test
@@ -380,10 +388,19 @@ sudo journalctl -u py_home -f
 # Edit crontab
 crontab -e
 
-# Add temperature coordination (every 15 min)
+# Temperature coordination (every 15 min)
 */15 * * * * cd /home/pi/py_home && python automations/temp_coordination.py
 
-# Add good morning (7 AM weekdays)
+# Temp Stick monitoring (every 30 min)
+*/30 * * * * cd /home/pi/py_home && python automations/tempstick_monitor.py
+
+# Air quality monitoring (every 30 min)
+*/30 * * * * cd /home/pi/py_home && python automations/air_quality_monitor.py
+
+# Presence detection (every 5 min)
+*/5 * * * * cd /home/pi/py_home && python automations/presence_monitor.py
+
+# Good morning (7 AM weekdays)
 0 7 * * 1-5 cd /home/pi/py_home && python automations/good_morning.py
 ```
 
@@ -449,17 +466,19 @@ See `server/README.md` and `components/network/README.md` for complete guides.
 
 **Architecture:** Pure Python + Flask + iOS Shortcuts (replacing n8n visual workflows)
 
-### ✅ Complete & Tested (95%)
-- ✅ 5 device components (Tapo, Nest, Sensibo, Tuya, Network)
-- ✅ 5 services (Maps, Weather, Notifications, GitHub, Checkvist)
+### ✅ Complete & Tested (97%)
+- ✅ 6 device components (Tapo, Nest, Sensibo, Tuya, Temp Stick, Network)
+- ✅ 6 services (Maps, Weather, Temp Stick API, Notifications, GitHub, Checkvist)
 - ✅ Flask webhook server (7 endpoints)
-- ✅ 9 automation scripts (including AI task routing, traffic alerts, presence)
-- ✅ 88+ passing tests (pytest suite)
+- ✅ 10 automation scripts (home scenes, monitoring, AI routing, traffic)
+- ✅ 115+ passing tests (pytest suite)
+- ✅ Notification system with rate limiting
+- ✅ Temperature/humidity monitoring (Temp Stick)
+- ✅ Air quality monitoring (Tuya/Alen)
 - ✅ Structured logging system (RFC 5424-compatible)
 - ✅ Systemd service
 - ✅ Comprehensive documentation
 - ✅ Claude AI integration
-- ✅ Air quality monitoring (Tuya/Alen)
 
 ### 🚧 Ready to Deploy (3%)
 - 🚧 iOS Shortcuts creation (docs ready, user action required)
@@ -508,7 +527,7 @@ See `MIGRATION_LOG.md` for detailed progress tracking.
 - **requests** - REST API calls
 - **PyYAML** - Configuration files
 - **googlemaps** - Google Maps API client
-- **pytest** - Testing framework (88+ tests)
+- **pytest** - Testing framework (115+ tests)
 
 ---
 

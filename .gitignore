@@ -27,3 +27,7 @@ config/.env
 .DS_Store
 Thumbs.db
 
+# Runtime state
+.alert_state/
+data/location.json
+
