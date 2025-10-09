@@ -106,9 +106,12 @@ class TempStickAPI:
         # Parse last check-in timestamp
         last_checkin_str = raw_data['last_checkin']
         try:
-            # Format: "2025-10-08 21:56:07-00:00Z"
-            last_checkin = datetime.fromisoformat(last_checkin_str.replace('Z', '+00:00'))
-        except Exception:
+            # Format: "2025-10-09 21:34:08-00:00Z"
+            # Remove trailing Z, then parse (timezone offset already present)
+            cleaned_str = last_checkin_str.rstrip('Z')
+            last_checkin = datetime.fromisoformat(cleaned_str)
+        except Exception as e:
+            logger.warning(f"Failed to parse timestamp '{last_checkin_str}': {e}")
             last_checkin = None
 
         # Calculate if online (checked in within last 30 minutes)
