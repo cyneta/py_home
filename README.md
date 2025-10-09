@@ -36,11 +36,16 @@ curl "http://localhost:5000/travel-time?destination=Milwaukee"
 from components.tapo import turn_on, turn_off
 from components.nest import set_temperature
 from components.sensibo import turn_on as ac_on
+from components.tuya import get_air_quality
 
 # Control devices
 turn_on("Heater")
 set_temperature(72)
 ac_on(mode='cool', target_temp_f=70)
+
+# Monitor air quality
+aq = get_air_quality('bedroom')
+print(f"PM2.5: {aq['pm25']}, AQI: {aq['aqi']}, Quality: {aq['quality']}")
 ```
 
 ### Run Automations
@@ -102,6 +107,7 @@ py_home/
 │   ├── tapo/           # TP-Link Tapo smart plugs (4 devices)
 │   ├── nest/           # Google Nest thermostat
 │   ├── sensibo/        # Sensibo mini-split AC controller
+│   ├── tuya/           # Alen air purifiers (Tuya Cloud API)
 │   └── network/        # WiFi presence detection
 │
 ├── services/            # External API services
@@ -112,6 +118,7 @@ py_home/
 │
 ├── lib/                 # Shared utilities
 │   ├── config.py       # Configuration loader (YAML + .env)
+│   ├── logging_config.py # Structured logging (RFC 5424-compatible)
 │   └── notifications.py # Push notifications (Pushover/ntfy)
 │
 ├── config/              # Configuration
@@ -120,8 +127,15 @@ py_home/
 │
 ├── docs/                # Documentation
 │   ├── CURL_TESTING_GUIDE.md  # Testing with curl
+│   ├── LOGGING.md             # Structured logging guide
 │   ├── TAPO_GUIDE.md          # Tapo setup
 │   └── TAPO_INTEGRATION.md    # Integration details
+│
+├── dev/                 # Implementation plans
+│   ├── LOGGING_IMPLEMENTATION.md     # Logging system design
+│   ├── LOGGING_QUOTING_PLAN.md       # RFC 5424 quoting
+│   ├── TUYA_IMPLEMENTATION_PLAN.md   # Tuya integration design
+│   └── APPLE_MUSIC_PLAN.md           # Apple Music voice control
 │
 ├── test_all.py          # Comprehensive test suite
 ├── test_server.py       # Flask endpoint tests
@@ -134,7 +148,7 @@ py_home/
 
 ## 🏠 Devices & Services
 
-### Smart Devices (3 types, 6 devices)
+### Smart Devices (4 types, 8 devices)
 - **Google Nest Thermostat** (1) - Heating/cooling control
 - **Sensibo AC Controller** (1) - Bedroom mini-split AC
 - **TP-Link Tapo Smart Plugs** (4):
@@ -142,6 +156,9 @@ py_home/
   - Bedroom Right Lamp (192.168.50.143)
   - Livingroom Lamp (192.168.50.162)
   - Bedroom Left Lamp (192.168.50.93)
+- **Alen Air Purifiers** (2) - PM2.5/AQI monitoring via Tuya Cloud
+  - Bedroom 75i
+  - Living Room 75i
 
 ### External Services (5 APIs)
 - **Google Maps** - Travel time with traffic
@@ -152,7 +169,7 @@ py_home/
 
 ### Planned (Hardware-Dependent)
 - **Roborock Vacuum** - Cleaning automation
-- **Alen Air Purifiers** (2) - Air quality monitoring
+- **Apple Music** - Voice control & automation integration
 
 ---
 
@@ -230,15 +247,21 @@ Each device is a **self-contained package** with clean imports:
 from components.tapo import turn_on, turn_off, get_status
 from components.nest import set_temperature, get_status
 from components.sensibo import turn_on, turn_off, set_ac_state
+from components.tuya import get_air_quality, set_power
 
 from services import get_current_weather, get_travel_time, add_task
 from lib.notifications import send, send_high
+from lib.logging_config import kvlog
 
 # Use anywhere in your code
 turn_on("Heater")
 set_temperature(72)
+air_quality = get_air_quality("bedroom")  # {'pm25': 15, 'aqi': 55, 'quality': 'good'}
 weather = get_current_weather("Portland, OR")
-send(f"House is {weather['temp']}°F")
+send(f"House is {weather['temp']}°F, PM2.5: {air_quality['pm25']}")
+
+# Structured logging
+kvlog(logger, logging.INFO, automation='leaving_home', event='start', dry_run=False)
 ```
 
 **Component Structure:**
@@ -284,17 +307,20 @@ See component READMEs for credential setup.
 
 ### Run All Tests
 ```bash
-# Comprehensive test suite
-python test_all.py
+# Comprehensive test suite with pytest
+python -m pytest tests/ -v
 
-# Expected output:
-# ✓ Configuration
-# ✓ Module imports
-# ✓ Tapo smart plugs
-# ✓ Nest thermostat
-# ✓ Sensibo AC
-# ✓ OpenWeather API
-# ✓ Services loaded
+# Expected: 88+ passing tests
+# ✓ Configuration & config loading
+# ✓ All component integrations (Tapo, Nest, Sensibo, Tuya)
+# ✓ Automation workflows
+# ✓ Error handling
+# ✓ Flask endpoints
+# ✓ AI handler
+# ✓ Logging system (including RFC 5424 quoting)
+
+# Quick smoke test
+python test_all.py
 ```
 
 ### Test Flask Server
@@ -419,30 +445,30 @@ See `server/README.md` and `components/network/README.md` for complete guides.
 
 ---
 
-## 📊 Migration Status
+## 📊 System Status
 
-**Migrating from:** n8n visual workflows + Homebridge
-**Migrating to:** Pure Python + Flask + iOS Shortcuts
+**Architecture:** Pure Python + Flask + iOS Shortcuts (replacing n8n visual workflows)
 
-### ✅ Complete (85%)
-- ✅ 4 device components (Tapo, Nest, Sensibo, Network)
+### ✅ Complete & Tested (95%)
+- ✅ 5 device components (Tapo, Nest, Sensibo, Tuya, Network)
 - ✅ 5 services (Maps, Weather, Notifications, GitHub, Checkvist)
 - ✅ Flask webhook server (7 endpoints)
 - ✅ 9 automation scripts (including AI task routing, traffic alerts, presence)
-- ✅ Test suite
+- ✅ 88+ passing tests (pytest suite)
+- ✅ Structured logging system (RFC 5424-compatible)
 - ✅ Systemd service
 - ✅ Comprehensive documentation
 - ✅ Claude AI integration
+- ✅ Air quality monitoring (Tuya/Alen)
 
-### 🚧 In Progress (15%)
+### 🚧 Ready to Deploy (3%)
 - 🚧 iOS Shortcuts creation (docs ready, user action required)
 - 🚧 Production deployment (ready to deploy)
 - 🚧 Cron job setup (scripts ready)
 
-### ⏸️ Deferred (5% - Hardware Dependent)
-- ⏸️ Roborock vacuum component
-- ⏸️ Alen air purifier component
-- ⏸️ Air quality monitoring
+### 📋 Planned (2%)
+- 📋 Roborock vacuum component (config ready, needs implementation)
+- 📋 Apple Music voice control (plan complete, ready to implement)
 
 See `MIGRATION_LOG.md` for detailed progress tracking.
 
@@ -463,6 +489,8 @@ See `MIGRATION_LOG.md` for detailed progress tracking.
 - **components/tapo/README.md** - Tapo smart plugs
 - **components/nest/README.md** - Nest thermostat
 - **components/sensibo/README.md** - Sensibo AC
+- **components/tuya/README.md** - Tuya/Alen air purifiers
+- **docs/LOGGING.md** - Structured logging guide
 
 ### Migration Tracking
 - **MIGRATION_LOG.md** - What's been completed
@@ -476,9 +504,11 @@ See `MIGRATION_LOG.md` for detailed progress tracking.
 - **Python 3.9+** - Core language
 - **Flask 3.1** - Webhook server
 - **python-kasa** - Tapo local control (KLAP protocol)
+- **tinytuya** - Tuya Cloud API (Alen air purifiers)
 - **requests** - REST API calls
 - **PyYAML** - Configuration files
 - **googlemaps** - Google Maps API client
+- **pytest** - Testing framework (88+ tests)
 
 ---
 
