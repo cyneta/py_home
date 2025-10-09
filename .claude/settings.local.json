@@ -16,7 +16,10 @@
       "Bash(ssh matt.wheeler@raspberrypi.local \"ls -la ~ | grep -E ''n8n|siri_n8n|home_automation''\")",
       "WebSearch",
       "Read(//c/tmp/**)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(ssh matt.wheeler@raspberrypi.local \"ls -la ~ | grep py_home || echo ''py_home directory does not exist''\")",
+      "Bash(ssh:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

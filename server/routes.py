@@ -402,15 +402,260 @@ def register_routes(app):
                 'message': f'Failed to process command: {str(e)}'
             }), 500
 
-    @app.route('/logs', methods=['GET'])
+    @app.route('/logs')
+    def logs_ui():
+        """
+        Web UI for browsing logs (HTML) or API endpoint (JSON)
+
+        Returns HTML if accessed from browser, JSON if Accept header is application/json
+        """
+        from flask import Response
+
+        # Check if client wants JSON (API client) or HTML (browser)
+        if request.accept_mimetypes.best == 'application/json' or request.args.get('format') == 'json':
+            return list_logs()
+
+        # Serve HTML UI
+        html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>py_home Logs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { margin-bottom: 10px; color: #58a6ff; }
+        .subtitle { color: #8b949e; margin-bottom: 30px; }
+        .log-list { display: grid; gap: 15px; margin-bottom: 30px; }
+        .log-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .log-card:hover {
+            border-color: #58a6ff;
+            background: #1c2128;
+        }
+        .log-card.active {
+            border-color: #58a6ff;
+            background: #1c2128;
+        }
+        .log-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #58a6ff;
+            margin-bottom: 8px;
+        }
+        .log-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: #8b949e;
+        }
+        .log-viewer {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 20px;
+            display: none;
+        }
+        .log-viewer.active { display: block; }
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+        .btn.active {
+            background: #58a6ff;
+            border-color: #58a6ff;
+            color: #0d1117;
+        }
+        pre {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #c9d1d9;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+        .error {
+            color: #f85149;
+            padding: 15px;
+            background: #161b22;
+            border: 1px solid #f85149;
+            border-radius: 6px;
+        }
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .log-controls { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 py_home Logs</h1>
+        <div class="subtitle">Real-time monitoring and automation logs</div>
+
+        <div class="log-list" id="logList">
+            <div class="loading">Loading logs...</div>
+        </div>
+
+        <div class="log-viewer" id="logViewer">
+            <div class="log-controls">
+                <button class="btn active" onclick="setLines(50)">50 lines</button>
+                <button class="btn" onclick="setLines(100)">100 lines</button>
+                <button class="btn" onclick="setLines(200)">200 lines</button>
+                <button class="btn" onclick="setLines(500)">500 lines</button>
+                <button class="btn" onclick="refresh()">🔄 Refresh</button>
+                <button class="btn" onclick="toggleAutoRefresh()">⏱️ Auto-refresh: OFF</button>
+            </div>
+            <pre id="logContent">Select a log file to view</pre>
+        </div>
+    </div>
+
+    <script>
+        let currentLog = null;
+        let currentLines = 50;
+        let autoRefreshInterval = null;
+
+        async function loadLogList() {
+            try {
+                const response = await fetch('/logs?format=json');
+                const data = await response.json();
+
+                const listEl = document.getElementById('logList');
+                if (data.logs.length === 0) {
+                    listEl.innerHTML = '<div class="loading">No logs found</div>';
+                    return;
+                }
+
+                listEl.innerHTML = data.logs.map(log => {
+                    const size = (log.size_bytes / 1024).toFixed(1);
+                    const date = new Date(log.modified * 1000).toLocaleString();
+                    return `
+                        <div class="log-card" onclick="viewLog('${log.name}')">
+                            <div class="log-name">${log.name}</div>
+                            <div class="log-meta">
+                                <span>📦 ${size} KB</span>
+                                <span>🕐 ${date}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                document.getElementById('logList').innerHTML =
+                    `<div class="error">Failed to load logs: ${error.message}</div>`;
+            }
+        }
+
+        async function viewLog(filename) {
+            currentLog = filename;
+            document.getElementById('logViewer').classList.add('active');
+
+            // Update active card
+            document.querySelectorAll('.log-card').forEach(card => {
+                card.classList.toggle('active', card.textContent.includes(filename));
+            });
+
+            await loadLogContent();
+        }
+
+        async function loadLogContent() {
+            if (!currentLog) return;
+
+            const contentEl = document.getElementById('logContent');
+            contentEl.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(
+                    `/logs/${currentLog}?lines=${currentLines}&format=text`
+                );
+                const text = await response.text();
+                contentEl.textContent = text || '(empty log)';
+            } catch (error) {
+                contentEl.textContent = `Error loading log: ${error.message}`;
+            }
+        }
+
+        function setLines(lines) {
+            currentLines = lines;
+            document.querySelectorAll('.log-controls .btn').forEach((btn, i) => {
+                btn.classList.toggle('active', i === [50, 100, 200, 500].indexOf(lines));
+            });
+            loadLogContent();
+        }
+
+        function refresh() {
+            loadLogList();
+            if (currentLog) loadLogContent();
+        }
+
+        function toggleAutoRefresh() {
+            const btn = document.querySelectorAll('.log-controls .btn')[5];
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.textContent = '⏱️ Auto-refresh: OFF';
+                btn.classList.remove('active');
+            } else {
+                autoRefreshInterval = setInterval(refresh, 5000);
+                btn.textContent = '⏱️ Auto-refresh: ON';
+                btn.classList.add('active');
+            }
+        }
+
+        // Load logs on page load
+        loadLogList();
+
+        // Auto-refresh log list every 30 seconds
+        setInterval(loadLogList, 30000);
+    </script>
+</body>
+</html>
+        """
+        return Response(html, mimetype='text/html')
+
     def list_logs():
         """
-        List all available log files with metadata
+        List all available log files with metadata (JSON API)
 
         Returns:
             JSON with list of log files and their sizes/timestamps
         """
-        logger.info("Received /logs request")
+        logger.info("Received /logs API request")
 
         logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'logs')
 
