@@ -15,7 +15,8 @@
       "Bash(curl:*)",
       "Bash(ssh matt.wheeler@raspberrypi.local \"ls -la ~ | grep -E ''n8n|siri_n8n|home_automation''\")",
       "WebSearch",
-      "Read(//c/tmp/**)"
+      "Read(//c/tmp/**)",
+      "Bash(git mv:*)"
     ],
     "deny": [],
     "ask": []
