@@ -100,20 +100,32 @@ def _send_ntfy(message, title, priority, config):
     }.get(priority, 3)
 
     try:
+        # Remove emojis from title for HTTP header (latin-1 encoding required)
+        # Keep emojis in message body which supports UTF-8
+        def strip_emojis(text):
+            """Remove non-latin-1 characters (emojis) from text"""
+            return ''.join(char for char in text if ord(char) < 256)
+
+        safe_title = strip_emojis(title).strip()
+
+        # If title had only emojis, use default
+        if not safe_title:
+            safe_title = "Home Automation"
+
         full_message = f"{title}: {message}" if title != "Home Automation" else message
 
         resp = requests.post(
             f"https://ntfy.sh/{topic}",
             data=full_message.encode('utf-8'),
             headers={
-                "Title": title,
+                "Title": safe_title,
                 "Priority": str(ntfy_priority),
                 "Tags": "house"
             },
             timeout=10
         )
         resp.raise_for_status()
-        logger.info(f"ntfy notification sent: {title}")
+        logger.info(f"ntfy notification sent: {safe_title}")
         return True
     except requests.exceptions.RequestException as e:
         logger.error(f"ntfy API error: {e}")

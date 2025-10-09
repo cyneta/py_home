@@ -253,6 +253,9 @@ def main():
         # Get sensor data
         data = get_sensor_data()
 
+        # Use sensor_name as room for compatibility
+        data['room'] = data.get('sensor_name', 'Unknown')
+
         kvlog(logger, logging.INFO, automation='tempstick_monitor',
               sensor_id=data['sensor_id'], room=data['room'],
               temp_f=data['temperature_f'], humidity=data['humidity'],
