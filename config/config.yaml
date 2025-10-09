@@ -92,6 +92,10 @@ openweather:
   units: "imperial"  # or "metric"
   zip_code: "97202,us"  # Default location (Portland, OR)
 
+tempstick:
+  api_key: "${TEMPSTICK_API_KEY}"
+  sensor_id: "${TEMPSTICK_SENSOR_ID}"  # Format: TS00XXXXXX
+
 presence:
   # Network-based presence detection (backup to iOS location)
   devices:
