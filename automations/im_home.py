@@ -5,9 +5,9 @@ I'm Home Automation
 Welcome home routine when arriving.
 
 Actions:
-1. Set Nest thermostat to comfort temp (72°F)
-2. Send welcome notification
-3. (Future: Turn on entry lights)
+1. Disable Nest ECO mode and set comfort temp (70°F)
+2. Turn on all lamps (welcome lights)
+3. Send welcome notification
 
 Usage:
     python automations/im_home.py
@@ -36,7 +36,7 @@ def run():
     actions = []
     errors = []
 
-    # 1. Set Nest to comfort temperature
+    # 1. Disable Nest ECO mode and set comfort temperature
     try:
         from components.nest import NestAPI
         from lib.config import config
@@ -45,16 +45,17 @@ def run():
         nest = NestAPI(dry_run=DRY_RUN)
 
         api_start = time.time()
+        nest.set_eco_mode(False)
         nest.set_temperature(comfort_temp)
         duration_ms = int((time.time() - api_start) * 1000)
 
         kvlog(logger, logging.NOTICE, automation='im_home', device='nest',
-              action='set_temp', target=comfort_temp, result='ok', duration_ms=duration_ms)
+              action='set_comfort', target=comfort_temp, result='ok', duration_ms=duration_ms)
 
         actions.append(f"Nest set to {comfort_temp}°F")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='im_home', device='nest',
-              action='set_temp', error_type=type(e).__name__, error_msg=str(e))
+              action='set_comfort', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
         actions.append(f"Nest failed: {str(e)[:30]}")
 

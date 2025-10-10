@@ -5,7 +5,7 @@ Leaving Home Automation
 Migrated from: siri_n8n/n8n/workflows/leaving-home.json
 
 Actions:
-1. Set Nest thermostat to away temp (62°F)
+1. Set Nest thermostat to ECO mode (energy-saving)
 2. Turn off all Tapo outlets (coffee maker, lamps, heater)
 3. (Future: Start Roborock vacuum)
 4. Send notification
@@ -36,26 +36,24 @@ def run():
     errors = []
     actions = []
 
-    # 1. Set Nest to away temperature
+    # 1. Set Nest to ECO mode (energy-saving away mode)
     try:
         from components.nest import NestAPI
-        from lib.config import config
 
-        away_temp = config['nest']['away_temp']
         nest = NestAPI(dry_run=DRY_RUN)
 
         api_start = time.time()
-        nest.set_temperature(away_temp)
+        nest.set_eco_mode(True)
         duration_ms = int((time.time() - api_start) * 1000)
 
         kvlog(logger, logging.NOTICE, automation='leaving_home', device='nest',
-              action='set_temp', target=away_temp, result='ok', duration_ms=duration_ms)
-        actions.append(f"Nest set to {away_temp}°F")
+              action='set_eco_mode', enabled=True, result='ok', duration_ms=duration_ms)
+        actions.append("Nest ECO mode enabled")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='leaving_home', device='nest',
-              action='set_temp', error_type=type(e).__name__, error_msg=str(e))
+              action='set_eco_mode', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
-        actions.append(f"Nest failed: {str(e)[:30]}")
+        actions.append(f"Nest ECO failed: {str(e)[:30]}")
 
     # 2. Turn off all Tapo outlets
     try:
