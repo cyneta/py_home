@@ -35,6 +35,11 @@ def send(message, title="Home Automation", priority=0):
         >>> send("House secured, cleaning started")
         >>> send("Tesla battery low (18%)", priority=1)
     """
+    # Validate message is not empty
+    if not message or (isinstance(message, str) and not message.strip()):
+        logger.warning("Notification rejected: empty message")
+        return False
+
     from lib.config import config
 
     service = config['notifications']['service']
