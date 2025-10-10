@@ -31,7 +31,9 @@ locations:
     lng: -122.6393
 
 notifications:
-  service: "pushover"  # or "ntfy"
+  service: "ntfy"  # or "pushover"
+  ntfy:
+    topic: "py_home_7h3k2m9x"
   pushover:
     token: "${PUSHOVER_TOKEN}"
     user: "${PUSHOVER_USER}"
