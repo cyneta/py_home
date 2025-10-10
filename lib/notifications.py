@@ -175,9 +175,9 @@ def send_automation_summary(event_title, actions, priority=0):
         return send(event_title, priority=priority)
 
     # Build multi-line message with event title (with emoji) and action list
-    # Include title in body to preserve emoji, with blank line separator
-    message = event_title + "\n\n" + "\n".join(f"→ {action}" for action in actions)
-    return send(message, title=event_title, priority=priority)
+    # Title goes in body to preserve emoji, actions follow immediately
+    message = event_title + "\n" + "\n".join(f"→ {action}" for action in actions)
+    return send(message, title="Home Automation", priority=priority)
 
 
 __all__ = [
