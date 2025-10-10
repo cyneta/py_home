@@ -33,6 +33,7 @@ def run():
     start_time = time.time()
     kvlog(logger, logging.NOTICE, automation='im_home', event='start', dry_run=DRY_RUN)
 
+    actions = []
     errors = []
 
     # 1. Set Nest to comfort temperature
@@ -49,24 +50,26 @@ def run():
 
         kvlog(logger, logging.NOTICE, automation='im_home', device='nest',
               action='set_temp', target=comfort_temp, result='ok', duration_ms=duration_ms)
+
+        actions.append(f"Nest set to {comfort_temp}°F")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='im_home', device='nest',
               action='set_temp', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
+        actions.append(f"Nest failed: {str(e)[:30]}")
 
     # 2. Future: Turn on entry lights
     # Will be implemented when additional Tapo devices are configured
 
-    # 3. Send notification
+    # 3. Send notification with action summary
     try:
         if not DRY_RUN:
-            from lib.notifications import send_low
+            from lib.notifications import send_automation_summary
 
-            if errors:
-                message = f"Welcome home (with {len(errors)} errors)"
-                send_low(message, title="Welcome Home")
-            else:
-                send_low("Welcome home! House is ready.", title="Welcome Home")
+            title = "🏡 Arrived Home"
+            priority = 1 if errors else 0  # High priority if errors
+
+            send_automation_summary(title, actions, priority=priority)
 
             kvlog(logger, logging.INFO, automation='im_home', action='notification', result='sent')
         else:

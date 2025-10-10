@@ -27,7 +27,7 @@ import logging
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.tempstick import get_sensor_data
-from lib.notifications import send, send_high
+from lib.notifications import send_automation_summary
 from lib.logging_config import setup_logging, kvlog
 from lib.alert_state import should_send_alert, record_alert_sent
 
@@ -54,9 +54,6 @@ def check_pipe_freeze_risk(temp_f, room, dry_run=False):
         bool: True if freeze risk detected
     """
     if temp_f < PIPE_FREEZE_TEMP:
-        title = f"🚨 Temp Stick ({room})"
-        message = f"{temp_f:.1f}°F - FREEZE RISK"
-
         kvlog(logger, logging.WARNING, automation='tempstick_monitor',
               alert='pipe_freeze_risk', room=room, temp_f=temp_f,
               threshold=PIPE_FREEZE_TEMP, dry_run=dry_run)
@@ -64,19 +61,23 @@ def check_pipe_freeze_risk(temp_f, room, dry_run=False):
         # Rate limiting: max 1 alert per hour
         if should_send_alert('pipe_freeze', room, cooldown_minutes=60):
             if not dry_run:
-                send_high(message, title)
+                send_automation_summary(
+                    f"❄️ {room} Cold ({temp_f:.1f}°F)",
+                    [
+                        "Pipe freeze risk",
+                        "Check heating system"
+                    ],
+                    priority=2  # Urgent
+                )
                 record_alert_sent('pipe_freeze', room)
             else:
-                logger.info(f"[DRY-RUN] Would send alert: {title}: {message}")
+                logger.info(f"[DRY-RUN] Would send alert: Pipe freeze risk at {temp_f:.1f}°F")
         else:
-            logger.info(f"Alert suppressed (cooldown): {title}: {message}")
+            logger.info(f"Alert suppressed (cooldown): Pipe freeze risk at {temp_f:.1f}°F")
 
         return True
 
     elif temp_f < COLD_WARNING_TEMP:
-        title = f"⚠️ Temp Stick ({room})"
-        message = f"{temp_f:.1f}°F - Cold warning"
-
         kvlog(logger, logging.NOTICE, automation='tempstick_monitor',
               alert='cold_warning', room=room, temp_f=temp_f,
               threshold=COLD_WARNING_TEMP, dry_run=dry_run)
@@ -84,12 +85,19 @@ def check_pipe_freeze_risk(temp_f, room, dry_run=False):
         # Rate limiting: max 1 alert per hour
         if should_send_alert('cold_warning', room, cooldown_minutes=60):
             if not dry_run:
-                send(message, title)
+                send_automation_summary(
+                    f"⚠️ {room} Cold ({temp_f:.1f}°F)",
+                    [
+                        "Temperature below normal",
+                        "Monitor for further drop"
+                    ],
+                    priority=1  # High
+                )
                 record_alert_sent('cold_warning', room)
             else:
-                logger.info(f"[DRY-RUN] Would send warning: {title}: {message}")
+                logger.info(f"[DRY-RUN] Would send warning: Cold warning at {temp_f:.1f}°F")
         else:
-            logger.info(f"Alert suppressed (cooldown): {title}: {message}")
+            logger.info(f"Alert suppressed (cooldown): Cold warning at {temp_f:.1f}°F")
 
         return True
 
@@ -109,9 +117,6 @@ def check_humidity_risk(humidity, room, dry_run=False):
         bool: True if humidity risk detected
     """
     if humidity > VERY_HIGH_HUMIDITY:
-        title = f"🚨 Temp Stick ({room})"
-        message = f"{humidity:.1f}% humidity - LEAK RISK"
-
         kvlog(logger, logging.WARNING, automation='tempstick_monitor',
               alert='very_high_humidity', room=room, humidity=humidity,
               threshold=VERY_HIGH_HUMIDITY, dry_run=dry_run)
@@ -119,19 +124,23 @@ def check_humidity_risk(humidity, room, dry_run=False):
         # Rate limiting: max 1 alert per hour
         if should_send_alert('very_high_humidity', room, cooldown_minutes=60):
             if not dry_run:
-                send_high(message, title)
+                send_automation_summary(
+                    f"💧 High Humidity ({humidity:.1f}%)",
+                    [
+                        f"{room}",
+                        "Possible leak - check area"
+                    ],
+                    priority=2  # Urgent
+                )
                 record_alert_sent('very_high_humidity', room)
             else:
-                logger.info(f"[DRY-RUN] Would send alert: {title}: {message}")
+                logger.info(f"[DRY-RUN] Would send alert: Very high humidity {humidity:.1f}%")
         else:
-            logger.info(f"Alert suppressed (cooldown): {title}: {message}")
+            logger.info(f"Alert suppressed (cooldown): Very high humidity {humidity:.1f}%")
 
         return True
 
     elif humidity > HIGH_HUMIDITY:
-        title = f"⚠️ Temp Stick ({room})"
-        message = f"{humidity:.1f}% humidity - High"
-
         kvlog(logger, logging.NOTICE, automation='tempstick_monitor',
               alert='high_humidity', room=room, humidity=humidity,
               threshold=HIGH_HUMIDITY, dry_run=dry_run)
@@ -139,12 +148,19 @@ def check_humidity_risk(humidity, room, dry_run=False):
         # Rate limiting: max 1 alert per hour
         if should_send_alert('high_humidity', room, cooldown_minutes=60):
             if not dry_run:
-                send(message, title)
+                send_automation_summary(
+                    f"💧 Humidity High ({humidity:.1f}%)",
+                    [
+                        f"{room}",
+                        "Monitor for further increase"
+                    ],
+                    priority=1  # High
+                )
                 record_alert_sent('high_humidity', room)
             else:
-                logger.info(f"[DRY-RUN] Would send warning: {title}: {message}")
+                logger.info(f"[DRY-RUN] Would send warning: High humidity {humidity:.1f}%")
         else:
-            logger.info(f"Alert suppressed (cooldown): {title}: {message}")
+            logger.info(f"Alert suppressed (cooldown): High humidity {humidity:.1f}%")
 
         return True
 
@@ -179,19 +195,19 @@ def check_sensor_status(data, dry_run=False):
               battery_pct=data['battery_pct'], dry_run=dry_run)
 
     if issues:
-        issue_text = ", ".join(issues)
-        title = f"⚠️ Temp Stick ({data['room']})"
-        message = f"{issue_text}"
-
         # Rate limiting: max 1 alert per 2 hours for sensor issues
         if should_send_alert('sensor_issues', data['room'], cooldown_minutes=120):
             if not dry_run:
-                send(message, title)
+                send_automation_summary(
+                    f"⚠️ Sensor Issue",
+                    [f"{data['room']}: {issue}" for issue in issues],
+                    priority=1  # High
+                )
                 record_alert_sent('sensor_issues', data['room'])
             else:
-                logger.info(f"[DRY-RUN] Would send alert: {title}: {message}")
+                logger.info(f"[DRY-RUN] Would send alert: Sensor issues - {', '.join(issues)}")
         else:
-            logger.info(f"Alert suppressed (cooldown): {title}: {message}")
+            logger.info(f"Alert suppressed (cooldown): Sensor issues - {', '.join(issues)}")
 
         return True
 
@@ -293,10 +309,15 @@ def main():
         kvlog(logger, logging.ERROR, automation='tempstick_monitor',
               event='error', error_type=type(e).__name__, error_msg=str(e))
 
-        message = f"❌ Temp Stick error: {str(e)}"
-
         if not args.dry_run:
-            send(message)
+            send_automation_summary(
+                "❌ Sensor Monitor Failed",
+                [
+                    f"Error: {str(e)[:50]}",
+                    "Check sensor connection"
+                ],
+                priority=1
+            )
 
         logger.exception("Temp Stick monitor failed")
         return 1

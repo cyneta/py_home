@@ -104,12 +104,16 @@ def run():
             results['changes_made'].append(f"Turned ON Sensibo AC (Nest at {current_temp}°F > {trigger_temp}°F)")
             logger.info(f"✓ Turned ON Sensibo AC (too hot: {current_temp}°F)")
 
-            # Send notification
-            if DRY_RUN:
-                logger.info(f"[DRY-RUN] Would send notification: 'AC turned on - House is {current_temp}°F'")
+            # Send notification with action summary
+            if not DRY_RUN:
+                from lib.notifications import send_automation_summary
+                send_automation_summary(
+                    "🌡️ Temperature Adjusted",
+                    [f"AC turned ON (house at {current_temp}°F)"],
+                    priority=0
+                )
             else:
-                from lib.notifications import send
-                send(f"AC turned on - House is {current_temp}°F", title="🌡️ Temperature")
+                logger.info(f"[DRY-RUN] Would send notification: AC turned ON")
 
         except Exception as e:
             logger.error(f"Failed to turn on Sensibo: {e}")
@@ -125,12 +129,16 @@ def run():
             results['changes_made'].append(f"Turned OFF Sensibo AC (Nest at {current_temp}°F < {turn_off_temp}°F)")
             logger.info(f"✓ Turned OFF Sensibo AC (cool enough: {current_temp}°F)")
 
-            # Send notification
-            if DRY_RUN:
-                logger.info(f"[DRY-RUN] Would send notification: 'AC turned off - House is {current_temp}°F'")
+            # Send notification with action summary
+            if not DRY_RUN:
+                from lib.notifications import send_automation_summary
+                send_automation_summary(
+                    "🌡️ Temperature Adjusted",
+                    [f"AC turned OFF (house at {current_temp}°F)"],
+                    priority=0
+                )
             else:
-                from lib.notifications import send_low
-                send_low(f"AC turned off - House is {current_temp}°F", title="🌡️ Temperature")
+                logger.info(f"[DRY-RUN] Would send notification: AC turned OFF")
 
         except Exception as e:
             logger.error(f"Failed to turn off Sensibo: {e}")

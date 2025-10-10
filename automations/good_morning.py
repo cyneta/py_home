@@ -34,6 +34,7 @@ def run():
     start_time = time.time()
     kvlog(logger, logging.NOTICE, automation='good_morning', event='start', dry_run=DRY_RUN)
 
+    actions = []
     errors = []
 
     # 1. Set Nest to comfort temperature
@@ -49,13 +50,16 @@ def run():
 
         kvlog(logger, logging.NOTICE, automation='good_morning', device='nest',
               action='set_temp', target=comfort_temp, result='ok', duration_ms=duration_ms)
+
+        actions.append(f"Nest set to {comfort_temp}°F")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='good_morning', device='nest',
               action='set_temp', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
+        actions.append(f"Nest failed: {str(e)[:30]}")
 
     # 2. Get weather forecast
-    weather_summary = "Weather unavailable"
+    weather_summary = None
     try:
         from services import get_weather_summary
 
@@ -65,10 +69,14 @@ def run():
 
         kvlog(logger, logging.NOTICE, automation='good_morning', service='weather',
               action='get_summary', result='ok', duration_ms=duration_ms)
+
+        # Add weather as first action (most important for morning)
+        actions.insert(0, weather_summary)
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='good_morning', service='weather',
               action='get_summary', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Weather: {e}")
+        actions.insert(0, "Weather unavailable")
 
     # 3. Future: Turn on coffee maker
     # Uncomment when coffee maker outlet is identified
@@ -79,18 +87,22 @@ def run():
     #     duration_ms = int((time.time() - api_start) * 1000)
     #     kvlog(logger, logging.NOTICE, automation='good_morning', device='coffee_maker',
     #           action='turn_on', result='ok', duration_ms=duration_ms)
+    #     actions.append("Coffee maker started")
     # except Exception as e:
     #     kvlog(logger, logging.ERROR, automation='good_morning', device='coffee_maker',
     #           action='turn_on', error_type=type(e).__name__, error_msg=str(e))
     #     errors.append(f"Coffee: {e}")
+    #     actions.append(f"Coffee maker failed: {str(e)[:30]}")
 
     # 4. Send morning summary notification
     try:
         if not DRY_RUN:
-            from lib.notifications import send
+            from lib.notifications import send_automation_summary
 
-            notification_msg = f"Good morning! {weather_summary}"
-            send(notification_msg, title="Good Morning")
+            title = "☀️ Good Morning"
+            priority = 1 if errors else 0  # High priority if errors
+
+            send_automation_summary(title, actions, priority=priority)
 
             kvlog(logger, logging.INFO, automation='good_morning', action='notification', result='sent')
         else:

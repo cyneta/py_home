@@ -35,6 +35,7 @@ def run():
     start_time = time.time()
     kvlog(logger, logging.NOTICE, automation='goodnight', event='start', dry_run=DRY_RUN)
 
+    actions = []
     errors = []
 
     # 1. Set Nest to sleep temperature
@@ -51,10 +52,13 @@ def run():
 
         kvlog(logger, logging.NOTICE, automation='goodnight', device='nest',
               action='set_temp', target=sleep_temp, result='ok', duration_ms=duration_ms)
+
+        actions.append(f"Nest set to {sleep_temp}°F")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='goodnight', device='nest',
               action='set_temp', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
+        actions.append(f"Nest failed: {str(e)[:30]}")
 
     # 2. Turn off Sensibo AC
     try:
@@ -68,10 +72,13 @@ def run():
 
         kvlog(logger, logging.NOTICE, automation='goodnight', device='sensibo',
               action='turn_off', result='ok', duration_ms=duration_ms)
+
+        actions.append("AC turned off")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='goodnight', device='sensibo',
               action='turn_off', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Sensibo: {e}")
+        actions.append(f"AC failed: {str(e)[:30]}")
 
     # 3. Turn off all Tapo outlets
     try:
@@ -85,24 +92,26 @@ def run():
 
         kvlog(logger, logging.NOTICE, automation='goodnight', device='tapo',
               action='turn_off_all', result='ok', duration_ms=duration_ms)
+
+        actions.append("All outlets turned off")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='goodnight', device='tapo',
               action='turn_off_all', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Tapo: {e}")
+        actions.append(f"Outlets failed: {str(e)[:30]}")
 
     # 4. Future: Start vacuum
     # Will be implemented when Roborock component is ready
 
-    # 5. Send notification
+    # 5. Send notification with action summary
     try:
         if not DRY_RUN:
-            from lib.notifications import send
+            from lib.notifications import send_automation_summary
 
-            if errors:
-                message = f"Sleep mode activated (with {len(errors)} errors)"
-                send(message, title="Goodnight", priority=1)
-            else:
-                send("Goodnight - Sleep mode activated", title="Goodnight")
+            title = "🌙 Goodnight"
+            priority = 1 if errors else 0  # High priority if errors
+
+            send_automation_summary(title, actions, priority=priority)
 
             kvlog(logger, logging.INFO, automation='goodnight', action='notification', result='sent')
         else:

@@ -12,6 +12,154 @@ Standardized notification pattern for py_home automation system using ntfy.sh.
 
 ---
 
+## System Architecture
+
+### Three-Layer Design
+
+py_home follows a **layered architecture** where notifications are sent only by the **application layer**, not by low-level components.
+
+```
+┌─────────────────────────────────────────┐
+│   Application Layer (automations/)     │  ← SENDS NOTIFICATIONS
+│   - User-triggered automations          │
+│   - Monitoring scripts                  │
+│   - Alert logic                         │
+└─────────────────────────────────────────┘
+              ↓ uses
+┌─────────────────────────────────────────┐
+│   Integration Layer (services/)         │  ← NO NOTIFICATIONS
+│   - Third-party APIs                    │     (just returns data)
+│   - External services                   │
+│   - Data transformations                │
+└─────────────────────────────────────────┘
+              ↓ uses
+┌─────────────────────────────────────────┐
+│   Component Layer (components/)         │  ← NO NOTIFICATIONS
+│   - Device control APIs                 │     (just logs operations)
+│   - Network operations                  │
+│   - Low-level device operations         │
+└─────────────────────────────────────────┘
+```
+
+### Separation of Concerns
+
+**Components** (`components/nest`, `components/tapo`, etc.):
+- ✅ **Do:** Provide device control APIs
+- ✅ **Do:** Log their operations
+- ✅ **Do:** Raise exceptions on errors
+- ❌ **Don't:** Send notifications
+- ❌ **Don't:** Know about user context
+
+**Services** (`services/tempstick`, `services/openweather`, etc.):
+- ✅ **Do:** Fetch data from external APIs
+- ✅ **Do:** Transform/parse responses
+- ✅ **Do:** Raise exceptions on errors
+- ❌ **Don't:** Send notifications
+- ❌ **Don't:** Know about automation logic
+
+**Automations** (`automations/leaving_home`, `automations/goodnight`, etc.):
+- ✅ **Do:** Orchestrate multiple components
+- ✅ **Do:** Send consolidated notifications
+- ✅ **Do:** Handle errors and notify user
+- ✅ **Do:** Provide user-centric context
+
+**Monitors** (`automations/tempstick_monitor`, `automations/temp_coordination`, etc.):
+- ✅ **Do:** Check component/service state
+- ✅ **Do:** Send alerts only when action required
+- ✅ **Do:** Use rate limiting to avoid spam
+- ❌ **Don't:** Notify on "everything is fine"
+
+### Why This Design?
+
+1. **User Experience**: Only notify when user needs to know or take action
+2. **Testability**: Components can be tested in isolation without notification system
+3. **Reusability**: Same component used by multiple automations with different notification strategies
+4. **Flexibility**: Change notification behavior without touching component code
+5. **Clarity**: Notification logic centralized in `automations/` folder, easy to find
+6. **Separation**: Components focus on device control, automations focus on user experience
+
+### Component Logging Standards
+
+**All components must log consistently** so monitors can detect issues and send appropriate alerts.
+
+**Required logging for all components:**
+
+```python
+# SUCCESS - Always log what happened
+logger.info(f"Nest temperature set to {temp}°F",
+            extra={'component': 'nest', 'action': 'set_temperature', 'value': temp})
+
+# FAILURE - Always log errors with context
+logger.error(f"Failed to set Nest temperature: {e}",
+             extra={'component': 'nest', 'action': 'set_temperature', 'error': str(e)})
+
+# STATE CHANGE - Log important state changes
+logger.info(f"Nest mode changed: {old_mode} → {new_mode}",
+            extra={'component': 'nest', 'action': 'mode_change', 'old': old_mode, 'new': new_mode})
+```
+
+**Standard log format:**
+- Use structured logging with `extra={}` for machine-readable data
+- Include: `component`, `action`, relevant values
+- Use kvlog helper from `lib.logging_config` when available
+
+**What to log:**
+- ✅ Every API call (success/failure)
+- ✅ State changes (on/off, temp changes, etc.)
+- ✅ Connection errors, timeouts, rate limits
+- ✅ Unexpected responses or data
+- ❌ Not every read operation (too noisy)
+- ❌ Not internal implementation details
+
+**Component health detection:**
+
+Monitors detect issues by analyzing component logs:
+- Repeated failures → Alert user
+- Device offline (no successful logs) → Alert user
+- State stuck (no changes when expected) → Alert user
+- Everything working → No notification (just log)
+
+### Example: How It Works
+
+```python
+# ❌ BAD: Component sends notifications
+# components/nest/client.py
+def set_temperature(temp):
+    try:
+        api_call(temp)
+    except Exception as e:
+        send("Nest offline!", priority=2)  # Component shouldn't know about notifications
+        raise
+
+# ✅ GOOD: Component just controls device and logs
+# components/nest/client.py
+def set_temperature(temp):
+    try:
+        api_call(temp)
+        logger.info(f"Nest temperature set to {temp}°F")
+    except Exception as e:
+        logger.error(f"Failed to set Nest temperature: {e}")
+        raise  # Let automation handle notification
+
+# ✅ GOOD: Automation orchestrates and notifies
+# automations/leaving_home.py
+def run():
+    actions = []
+    errors = []
+
+    try:
+        nest.set_temperature(62)
+        actions.append("Nest set to 62°F")
+    except Exception as e:
+        errors.append(f"Nest: {e}")
+        actions.append(f"Nest failed: {str(e)[:30]}")
+
+    # Send ONE notification with user-centric context
+    send_automation_summary("🚗 Left Home", actions, priority=1 if errors else 0)
+```
+
+---
+
 ## Format Specification
 
 ### Standard Template
@@ -391,16 +539,29 @@ send_automation_summary(
   - [ ] Confirm rate limiting still works
   - [ ] Test cooldown periods
 
-### Phase 4: Future Automations
+### Phase 4: Component Logging Audit
+- [ ] Audit all components for consistent logging
+  - [ ] `components/nest` - Standardize logging format
+  - [ ] `components/sensibo` - Standardize logging format
+  - [ ] `components/tapo` - Standardize logging format
+  - [ ] `components/tuya` - Standardize logging format (if re-enabled)
+  - [ ] `components/network` - Standardize logging format
+- [ ] Ensure all components use kvlog or structured logging
+- [ ] Verify all API calls logged (success/failure)
+- [ ] Verify all state changes logged
+- [ ] Test monitors can detect component failures from logs
+
+### Phase 5: Future Automations
 - [ ] Update any new automations to follow pattern
 - [ ] Ensure Flask webhook endpoints trigger silent (automations notify)
 - [ ] Add notification to travel time script if needed
 - [ ] Review all notification calls for consistency
 
-### Phase 5: Documentation & Cleanup
-- [ ] Create this design document
+### Phase 6: Documentation & Cleanup
+- [x] Create this design document
+- [x] Document system architecture
+- [x] Document component logging standards
 - [ ] Add examples to README
-- [ ] Document when to notify vs log
 - [ ] Add troubleshooting guide
 - [ ] Review all notifications for user clarity
 - [ ] Remove old notification patterns
