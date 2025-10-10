@@ -112,11 +112,10 @@ def _send_ntfy(message, title, priority, config):
         if not safe_title:
             safe_title = "Home Automation"
 
-        full_message = f"{title}: {message}" if title != "Home Automation" else message
-
+        # Send message as-is (title already in header)
         resp = requests.post(
             f"https://ntfy.sh/{topic}",
-            data=full_message.encode('utf-8'),
+            data=message.encode('utf-8'),
             headers={
                 "Title": safe_title,
                 "Priority": str(ntfy_priority),
