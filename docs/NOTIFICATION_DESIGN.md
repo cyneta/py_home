@@ -89,20 +89,20 @@ Standardized notification pattern for py_home automation system using ntfy.sh.
 
 ```
 ❄️ Crawlspace Cold (48°F)
-→ Alert: Pipe freeze risk
-→ Recommendation: Check heating
+→ Pipe freeze risk
+→ Check heating system
 ```
 
 ```
-⚠️ Temp Stick Offline
+⚠️ Sensor Offline
+→ Crawlspace monitor
 → Last seen: 2 hours ago
-→ Battery: 100%
 ```
 
 ```
 💧 High Humidity (72%)
-→ Alert: Leak risk
-→ Location: Crawlspace
+→ Crawlspace
+→ Possible leak - check area
 ```
 
 ---
@@ -158,7 +158,16 @@ Standardized notification pattern for py_home automation system using ntfy.sh.
 ✅ **Good:** Automation sends summary at end
 ❌ **Bad:** Notification per step
 
-### 4. Context-Aware Priority
+### 4. Human-Readable Context
+✅ **Good:** "Crawlspace" (location matters for action)
+❌ **Bad:** "TS00EMA9JZ" (device ID is meaningless to user)
+
+✅ **Good:** "All outlets turned off" (what happened)
+❌ **Bad:** "Tapo devices 192.168.50.135, 192.168.50.143..." (too technical)
+
+**Rule:** Include room/location only when user needs to take physical action there
+
+### 5. Context-Aware Priority
 
 | Priority | When | Effect (ntfy) |
 |----------|------|---------------|
@@ -238,17 +247,17 @@ def check_condition():
     # Check condition
     if temp < FREEZE_THRESHOLD:
         # Only notify on state CHANGE (use rate limiting)
-        if should_send_alert('freeze', cooldown_minutes=60):
+        if should_send_alert('freeze', room='crawlspace', cooldown_minutes=60):
             actions = [
-                f"Current: {temp}°F",
-                "Alert: Pipe freeze risk"
+                "Pipe freeze risk",
+                "Check heating system"
             ]
             send_automation_summary(
                 f"Crawlspace Cold ({temp}°F)",
                 actions,
                 priority=1
             )
-            record_alert_sent('freeze')
+            record_alert_sent('freeze', room='crawlspace')
 
     # If everything normal - NO notification (just log)
     else:
