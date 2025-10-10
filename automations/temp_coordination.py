@@ -213,6 +213,12 @@ def run():
         return results
 
     try:
+        # Handle case where Nest has no setpoint (ECO mode or OFF)
+        if nest_target is None:
+            logger.info("Nest has no setpoint (likely in ECO mode) - no sync needed")
+            results['changes_made'].append("Nest in ECO - no coordination")
+            return results
+
         # Read Sensibo status
         from components.sensibo import SensiboAPI
 

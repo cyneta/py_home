@@ -170,6 +170,18 @@ class NestAPI:
         # HVAC status
         hvac = traits.get('sdm.devices.traits.ThermostatHvac', {}).get('status', 'OFF')
 
+        # Validate critical fields before returning
+        if temp_f is None:
+            raise ValueError(
+                "Nest API returned no temperature data - "
+                "sensor may be offline or device initializing"
+            )
+        if mode is None:
+            raise ValueError(
+                "Nest API returned no mode data - "
+                "device may be initializing or API error"
+            )
+
         result = {
             'current_temp_f': temp_f,
             'current_humidity': humidity,
