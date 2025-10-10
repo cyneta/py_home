@@ -100,31 +100,33 @@ def _send_ntfy(message, title, priority, config):
     }.get(priority, 3)
 
     try:
-        # Remove emojis from title for HTTP header (latin-1 encoding required)
-        # Keep emojis in message body which supports UTF-8
-        def strip_emojis(text):
-            """Remove non-latin-1 characters (emojis) from text"""
-            return ''.join(char for char in text if ord(char) < 256)
+        # Build headers - only include Title if one was provided
+        headers = {
+            "Priority": str(ntfy_priority),
+            "Tags": "house"
+        }
 
-        safe_title = strip_emojis(title).strip()
+        # Only add Title header if title is not empty
+        # If no title, ntfy uses first line of message (preserves emojis!)
+        if title:
+            # Remove emojis from title for HTTP header (latin-1 encoding required)
+            def strip_emojis(text):
+                """Remove non-latin-1 characters (emojis) from text"""
+                return ''.join(char for char in text if ord(char) < 256)
 
-        # If title had only emojis, use default
-        if not safe_title:
-            safe_title = "Home Automation"
+            safe_title = strip_emojis(title).strip()
+            if safe_title:
+                headers["Title"] = safe_title
 
-        # Send message as-is (title already in header)
+        # Send message as UTF-8 (supports emojis in body)
         resp = requests.post(
             f"https://ntfy.sh/{topic}",
             data=message.encode('utf-8'),
-            headers={
-                "Title": safe_title,
-                "Priority": str(ntfy_priority),
-                "Tags": "house"
-            },
+            headers=headers,
             timeout=10
         )
         resp.raise_for_status()
-        logger.info(f"ntfy notification sent: {safe_title}")
+        logger.info(f"ntfy notification sent: {title or 'no title'}")
         return True
     except requests.exceptions.RequestException as e:
         logger.error(f"ntfy API error: {e}")
@@ -175,9 +177,10 @@ def send_automation_summary(event_title, actions, priority=0):
         return send(event_title, priority=priority)
 
     # Build multi-line message with event title (with emoji) and action list
-    # Title goes in body to preserve emoji, actions follow immediately
+    # Everything goes in body - no separate title needed
     message = event_title + "\n" + "\n".join(f"→ {action}" for action in actions)
-    return send(message, title="Home Automation", priority=priority)
+    # Don't pass title - let ntfy use first line of message as notification preview
+    return send(message, title="", priority=priority)
 
 
 __all__ = [
