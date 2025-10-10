@@ -2,9 +2,9 @@
 Network Presence Detection
 
 Detects if devices are on the local network using multiple methods:
-1. Ping (ICMP) - fast, requires static IP
-2. ARP scan - more reliable, uses MAC address
-3. Router query - most accurate, router-specific
+1. Ping (ICMP) - fast, requires static IP [ACTIVE]
+2. ARP scan - more reliable, uses MAC address [DEPRECATED - not installed]
+3. Router query - most accurate, router-specific [NOT IMPLEMENTED]
 
 Setup:
 1. Get your iPhone's IP: Settings → WiFi → (i) → IP Address
@@ -22,8 +22,25 @@ import subprocess
 import platform
 import logging
 import re
+import warnings
+from functools import wraps
 
 logger = logging.getLogger(__name__)
+
+
+def deprecated(message):
+    """Decorator to mark functions as deprecated"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.warn(
+                f"{func.__name__} is deprecated. {message}",
+                category=DeprecationWarning,
+                stacklevel=2
+            )
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 def is_device_home(identifier, method='ping'):
@@ -99,10 +116,12 @@ def _check_ping(ip_address):
         return False
 
 
+@deprecated("ARP detection not currently used. Ping method is sufficient. Requires arp/arp-scan tools not installed on Pi.")
 def _check_arp(mac_address):
     """
     Check if device is in ARP table by MAC address
 
+    DEPRECATED: Not currently used. Ping method is sufficient.
     More reliable than ping, works even if device ignores pings
     Requires arp-scan on Linux or arp command on Windows/Mac
     """
@@ -153,9 +172,12 @@ def _check_arp(mac_address):
         return False
 
 
+@deprecated("ARP detection not currently used. Ping method is sufficient.")
 def _check_arp_by_ip(ip_address):
     """
     Ping first to populate ARP cache, then check ARP table
+
+    DEPRECATED: Not currently used. Ping method is sufficient.
     """
     # First ping to ensure entry in ARP cache
     _check_ping(ip_address)
@@ -189,9 +211,12 @@ def _has_command(command):
         return False
 
 
+@deprecated("Network scanning not needed for single device detection. Not currently used.")
 def scan_network(subnet='192.168.1.0/24'):
     """
     Scan network for all active devices
+
+    DEPRECATED: Not currently used. Single device detection via is_device_home() is sufficient.
 
     Args:
         subnet: Network subnet to scan (CIDR notation)
@@ -261,9 +286,12 @@ def scan_network(subnet='192.168.1.0/24'):
         return []
 
 
+@deprecated("Not currently used. Use is_device_home() for presence detection instead.")
 def get_device_info(identifier):
     """
     Get information about a device on the network
+
+    DEPRECATED: Not currently used. Use is_device_home() for presence detection.
 
     Args:
         identifier: IP address or MAC address
@@ -294,9 +322,12 @@ def get_device_info(identifier):
     }
 
 
+@deprecated("Not currently used. Config accessed directly in presence_monitor.py.")
 def get_my_devices():
     """
     Get configured devices from config
+
+    DEPRECATED: Not currently used. Config accessed directly where needed.
 
     Returns:
         dict: Configured devices from config.yaml
@@ -316,8 +347,9 @@ def get_my_devices():
 
 
 __all__ = [
-    'is_device_home',
-    'scan_network',
-    'get_device_info',
-    'get_my_devices'
+    'is_device_home',  # Primary API - ACTIVE
+    # Deprecated functions (kept for backwards compatibility):
+    # 'scan_network',      # DEPRECATED - not used
+    # 'get_device_info',   # DEPRECATED - not used
+    # 'get_my_devices',    # DEPRECATED - not used
 ]
