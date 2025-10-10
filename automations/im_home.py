@@ -58,8 +58,28 @@ def run():
         errors.append(f"Nest: {e}")
         actions.append(f"Nest failed: {str(e)[:30]}")
 
-    # 2. Future: Turn on entry lights
-    # Will be implemented when additional Tapo devices are configured
+    # 2. Turn on all lamps
+    try:
+        from components.tapo import TapoAPI
+
+        tapo = TapoAPI(dry_run=DRY_RUN)
+
+        api_start = time.time()
+        # Turn on all outlets except heater
+        lamps = ["Livingroom Lamp", "Bedroom Left Lamp", "Bedroom Right Lamp"]
+        for lamp in lamps:
+            tapo.turn_on(lamp)
+        duration_ms = int((time.time() - api_start) * 1000)
+
+        kvlog(logger, logging.NOTICE, automation='im_home', device='tapo',
+              action='turn_on_lamps', count=len(lamps), result='ok', duration_ms=duration_ms)
+
+        actions.append("Welcome lights on")
+    except Exception as e:
+        kvlog(logger, logging.ERROR, automation='im_home', device='tapo',
+              action='turn_on_lamps', error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Lights: {e}")
+        actions.append(f"Lights failed: {str(e)[:30]}")
 
     # 3. Send notification with action summary
     try:
