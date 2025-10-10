@@ -34,6 +34,7 @@ def run():
     kvlog(logger, logging.NOTICE, automation='leaving_home', event='start', dry_run=DRY_RUN)
 
     errors = []
+    actions = []
 
     # 1. Set Nest to away temperature
     try:
@@ -49,10 +50,12 @@ def run():
 
         kvlog(logger, logging.NOTICE, automation='leaving_home', device='nest',
               action='set_temp', target=away_temp, result='ok', duration_ms=duration_ms)
+        actions.append(f"Nest set to {away_temp}°F")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='leaving_home', device='nest',
               action='set_temp', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
+        actions.append(f"Nest failed: {str(e)[:30]}")
 
     # 2. Turn off all Tapo outlets
     try:
@@ -66,21 +69,22 @@ def run():
 
         kvlog(logger, logging.NOTICE, automation='leaving_home', device='tapo',
               action='turn_off_all', result='ok', duration_ms=duration_ms)
+        actions.append("All outlets turned off")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='leaving_home', device='tapo',
               action='turn_off_all', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Tapo: {e}")
+        actions.append(f"Outlets failed: {str(e)[:30]}")
 
-    # 3. Send notification
+    # 3. Send notification with action summary
     try:
         if not DRY_RUN:
-            from lib.notifications import send
+            from lib.notifications import send_automation_summary
 
-            if errors:
-                message = f"House set to away mode (with {len(errors)} errors)"
-                send(message, title="🏠 Leaving Home", priority=1)
-            else:
-                send("House secured - Away mode activated", title="🏠 Leaving Home")
+            title = "🚗 Left Home"
+            priority = 1 if errors else 0  # High priority if errors
+
+            send_automation_summary(title, actions, priority=priority)
 
             kvlog(logger, logging.INFO, automation='leaving_home', action='notification', result='sent')
         else:

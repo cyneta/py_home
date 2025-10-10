@@ -211,20 +211,13 @@ def run():
         kvlog(logger, logging.NOTICE, automation='presence_monitor', action='state_change',
               change='arrived', prev_state='away', new_state='home')
 
-        # Trigger im_home automation
+        # Trigger im_home automation (it will send notification with actions)
         trigger_automation('im_home.py')
 
         # Save new state
         save_state(True)
 
-        # Send notification
-        try:
-            from lib.notifications import send_low
-            send_low("Welcome home! (detected via WiFi)", title="🏡 Arrived Home")
-            kvlog(logger, logging.INFO, automation='presence_monitor', action='notification', result='sent')
-        except Exception as e:
-            kvlog(logger, logging.ERROR, automation='presence_monitor', action='notification',
-                  error_type=type(e).__name__, error_msg=str(e))
+        # Note: No notification here - im_home.py will send one with action summary
 
         total_duration_ms = int((time.time() - start_time) * 1000)
         kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
@@ -242,20 +235,13 @@ def run():
         kvlog(logger, logging.NOTICE, automation='presence_monitor', action='state_change',
               change='departed', prev_state='home', new_state='away')
 
-        # Trigger leaving_home automation
+        # Trigger leaving_home automation (it will send notification with actions)
         trigger_automation('leaving_home.py')
 
         # Save new state
         save_state(False)
 
-        # Send notification
-        try:
-            from lib.notifications import send_low
-            send_low("House set to away mode (detected via WiFi)", title="🚗 Left Home")
-            kvlog(logger, logging.INFO, automation='presence_monitor', action='notification', result='sent')
-        except Exception as e:
-            kvlog(logger, logging.ERROR, automation='presence_monitor', action='notification',
-                  error_type=type(e).__name__, error_msg=str(e))
+        # Note: No notification here - leaving_home.py will send one with action summary
 
         total_duration_ms = int((time.time() - start_time) * 1000)
         kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',

@@ -153,4 +153,38 @@ def send_emergency(message, title="Home Automation"):
     return send(message, title, priority=2)
 
 
-__all__ = ['send', 'send_low', 'send_normal', 'send_high', 'send_emergency']
+def send_automation_summary(event_title, actions, priority=0):
+    """
+    Send notification with event title and list of actions taken
+
+    Args:
+        event_title: Event description with emoji (e.g., "🚗 Left Home")
+        actions: List of actions taken (e.g., ["Nest set to 62°F", "Lights off"])
+        priority: Notification priority (-2 to 2)
+
+    Returns:
+        bool: True if notification sent successfully
+
+    Example:
+        >>> send_automation_summary(
+        ...     "🚗 Left Home",
+        ...     ["Nest set to 62°F", "Lights turned off", "House secured"]
+        ... )
+    """
+    if not actions:
+        # No actions, just send the event
+        return send(event_title, priority=priority)
+
+    # Build multi-line message with action list
+    message = "\n".join(f"→ {action}" for action in actions)
+    return send(message, title=event_title, priority=priority)
+
+
+__all__ = [
+    'send',
+    'send_low',
+    'send_normal',
+    'send_high',
+    'send_emergency',
+    'send_automation_summary'
+]
