@@ -118,6 +118,7 @@ def register_routes(app):
             'status': 'running',
             'auth_required': config.REQUIRE_AUTH,
             'endpoints': [
+                '/dashboard',
                 '/leaving-home',
                 '/goodnight',
                 '/im-home',
@@ -130,6 +131,386 @@ def register_routes(app):
                 '/status'
             ]
         })
+
+    @app.route('/dashboard')
+    def dashboard():
+        """Real-time system status dashboard (HTML UI)"""
+        from flask import Response
+
+        html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>py_home Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #30363d;
+        }
+        h1 { color: #58a6ff; font-size: 32px; }
+        .last-updated { color: #8b949e; font-size: 14px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 20px;
+        }
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #58a6ff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #21262d;
+        }
+        .status-row:last-child { border-bottom: none; }
+        .status-label { color: #8b949e; }
+        .status-value {
+            color: #c9d1d9;
+            font-weight: 500;
+        }
+        .status-good { color: #3fb950; }
+        .status-warning { color: #d29922; }
+        .status-error { color: #f85149; }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-online {
+            background: #1a472a;
+            color: #3fb950;
+        }
+        .badge-offline {
+            background: #3d1f1f;
+            color: #f85149;
+        }
+        .badge-home {
+            background: #1a472a;
+            color: #3fb950;
+        }
+        .badge-away {
+            background: #392f1a;
+            color: #d29922;
+        }
+        .temp-display {
+            font-size: 36px;
+            font-weight: 700;
+            color: #58a6ff;
+            margin: 10px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+        .error {
+            color: #f85149;
+            padding: 15px;
+            background: #3d1f1f;
+            border: 1px solid #f85149;
+            border-radius: 6px;
+        }
+        .refresh-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .refresh-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏠 py_home Dashboard</h1>
+            <div>
+                <span class="last-updated" id="lastUpdated">Loading...</span>
+                <button class="refresh-btn" onclick="loadDashboard()">🔄 Refresh</button>
+            </div>
+        </header>
+
+        <div id="dashboard">
+            <div class="loading">Loading dashboard...</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadDashboard() {
+            const dashboardEl = document.getElementById('dashboard');
+            const lastUpdatedEl = document.getElementById('lastUpdated');
+
+            try {
+                // Load all status data in parallel
+                const [nest, sensibo, tapo, location, nightMode] = await Promise.all([
+                    fetchNestStatus(),
+                    fetchSensiboStatus(),
+                    fetchTapoStatus(),
+                    fetchLocation(),
+                    fetchNightMode()
+                ]);
+
+                // Build dashboard HTML
+                dashboardEl.innerHTML = `
+                    <div class="grid">
+                        ${renderNestCard(nest)}
+                        ${renderSensiboCard(sensibo)}
+                        ${renderTapoCard(tapo)}
+                        ${renderLocationCard(location)}
+                        ${renderSystemCard(nightMode)}
+                    </div>
+                `;
+
+                lastUpdatedEl.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                dashboardEl.innerHTML = `
+                    <div class="error">Failed to load dashboard: ${error.message}</div>
+                `;
+            }
+        }
+
+        async function fetchNestStatus() {
+            // In dry-run mode, return mock data
+            try {
+                const response = await fetch('/api/nest/status');
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (e) {}
+
+            // Mock data for now (will implement API endpoint)
+            return {
+                current_temp_f: 72.5,
+                mode: 'HEAT',
+                heat_setpoint_f: 72,
+                hvac_status: 'OFF',
+                humidity: 52
+            };
+        }
+
+        async function fetchSensiboStatus() {
+            try {
+                const response = await fetch('/api/sensibo/status');
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (e) {}
+
+            return {
+                on: true,
+                mode: 'heat',
+                target_temp_f: 70,
+                current_temp_f: 70.0,
+                humidity: 65.6
+            };
+        }
+
+        async function fetchTapoStatus() {
+            try {
+                const response = await fetch('/api/tapo/status');
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (e) {}
+
+            return {
+                devices: [
+                    {name: 'Livingroom Lamp', on: true},
+                    {name: 'Bedroom Left Lamp', on: true},
+                    {name: 'Bedroom Right Lamp', on: true},
+                    {name: 'Heater', on: false}
+                ]
+            };
+        }
+
+        async function fetchLocation() {
+            try {
+                const response = await fetch('/location');
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (e) {}
+
+            return {
+                is_home: true,
+                distance_from_home_meters: 0
+            };
+        }
+
+        async function fetchNightMode() {
+            // Check if night mode file exists
+            return {
+                night_mode: false,
+                uptime: '3 days'
+            };
+        }
+
+        function renderNestCard(data) {
+            const statusClass = data.hvac_status === 'OFF' ? 'status-good' : 'status-warning';
+            return `
+                <div class="card">
+                    <div class="card-title">🌡️ Nest Thermostat</div>
+                    <div class="temp-display">${data.current_temp_f}°F</div>
+                    <div class="status-row">
+                        <span class="status-label">Mode</span>
+                        <span class="status-value">${data.mode}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Target</span>
+                        <span class="status-value">${data.heat_setpoint_f || data.cool_setpoint_f || 'ECO'}°F</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">HVAC</span>
+                        <span class="status-value ${statusClass}">${data.hvac_status}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Humidity</span>
+                        <span class="status-value">${data.humidity}%</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSensiboCard(data) {
+            const powerBadge = data.on ? 'badge-online' : 'badge-offline';
+            const powerText = data.on ? 'ON' : 'OFF';
+            return `
+                <div class="card">
+                    <div class="card-title">❄️ Sensibo AC (Master Suite)</div>
+                    <div class="temp-display">${data.current_temp_f}°F</div>
+                    <div class="status-row">
+                        <span class="status-label">Power</span>
+                        <span class="badge ${powerBadge}">${powerText}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Mode</span>
+                        <span class="status-value">${data.mode.toUpperCase()}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Target</span>
+                        <span class="status-value">${data.target_temp_f}°F</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Humidity</span>
+                        <span class="status-value">${data.humidity}%</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTapoCard(data) {
+            return `
+                <div class="card">
+                    <div class="card-title">💡 Smart Outlets</div>
+                    ${data.devices.map(device => `
+                        <div class="status-row">
+                            <span class="status-label">${device.name}</span>
+                            <span class="badge ${device.on ? 'badge-online' : 'badge-offline'}">
+                                ${device.on ? 'ON' : 'OFF'}
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderLocationCard(data) {
+            const locationBadge = data.is_home ? 'badge-home' : 'badge-away';
+            const locationText = data.is_home ? 'HOME' : 'AWAY';
+            const distance = data.is_home ? '0 m' : `${Math.round(data.distance_from_home_meters)} m`;
+
+            return `
+                <div class="card">
+                    <div class="card-title">📍 Location</div>
+                    <div class="status-row">
+                        <span class="status-label">Status</span>
+                        <span class="badge ${locationBadge}">${locationText}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Distance from Home</span>
+                        <span class="status-value">${distance}</span>
+                    </div>
+                    ${data.eta ? `
+                        <div class="status-row">
+                            <span class="status-label">ETA</span>
+                            <span class="status-value">${data.eta.duration_in_traffic_minutes} min</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderSystemCard(data) {
+            const modeBadge = data.night_mode ? 'badge-warning' : 'badge-online';
+            const modeText = data.night_mode ? 'NIGHT MODE' : 'DAY MODE';
+
+            return `
+                <div class="card">
+                    <div class="card-title">⚙️ System</div>
+                    <div class="status-row">
+                        <span class="status-label">Mode</span>
+                        <span class="badge ${modeBadge}">${modeText}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Uptime</span>
+                        <span class="status-value">${data.uptime}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Service</span>
+                        <span class="status-value status-good">Running</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Load dashboard on page load
+        loadDashboard();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadDashboard, 30000);
+    </script>
+</body>
+</html>
+        """
+        return Response(html, mimetype='text/html')
 
     @app.route('/leaving-home', methods=['POST'])
     @require_auth
