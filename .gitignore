@@ -13,6 +13,7 @@ build/
 # Credentials
 .env
 config/.env
+config/config.local.yaml
 
 # Logs
 *.log

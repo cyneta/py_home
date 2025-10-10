@@ -12,10 +12,10 @@ nest:
   client_id: "${NEST_CLIENT_ID}"
   client_secret: "${NEST_CLIENT_SECRET}"
   refresh_token: "${NEST_REFRESH_TOKEN}"
-  device_id: "enterprises/b8e3fce2-20f4-471f-80e3-d08be2432b75/devices/AVPHwEuC4Fph26_szWKkiHKW4NY3yTTsUZxHDMbDQvUKAgE52AIpVM22O6m0pDaizIZbGIIiSmET4AgzYzRVUYvWvx7dvA"
+  device_id: "${NEST_DEVICE_ID}"
   away_temp: 62
   sleep_temp: 68
-  comfort_temp: 72
+  comfort_temp: 70
 
 locations:
   home:
@@ -31,29 +31,26 @@ locations:
     lng: -122.6393
 
 notifications:
-  service: "ntfy"  # or "pushover"
+  service: "ntfy"
   ntfy:
     topic: "py_home_7h3k2m9x"
-  pushover:
-    token: "${PUSHOVER_TOKEN}"
-    user: "${PUSHOVER_USER}"
 
 tapo:
   username: "${TAPO_USERNAME}"
   password: "${TAPO_PASSWORD}"
   outlets:
-    - name: "Heater"
-      ip: "192.168.50.135"
-    - name: "Bedroom Right Lamp"
-      ip: "192.168.50.143"
     - name: "Livingroom Lamp"
       ip: "192.168.50.162"
-    - name: "Bedroom Bedroom Left Lamp"
+    - name: "Bedroom Left Lamp"
       ip: "192.168.50.93"
+    - name: "Bedroom Right Lamp"
+      ip: "192.168.50.143"
+    - name: "Heater"
+      ip: "192.168.50.135"
 
 sensibo:
   api_key: "${SENSIBO_API_KEY}"
-  bedroom_ac_id: "6WwepeGh"
+  bedroom_ac_id: "${SENSIBO_AC_ID}"
 
 alen:
   api_key: "${TUYA_API_KEY}"

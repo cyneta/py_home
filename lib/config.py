@@ -2,11 +2,17 @@
 Configuration management for py_home
 
 Loads configuration from:
-1. config/config.yaml - Non-sensitive settings
-2. config/.env - Sensitive credentials (not committed to git)
+1. config/config.yaml - Base configuration (committed to git)
+2. config/config.local.yaml - Local overrides (gitignored, optional)
+3. config/.env - Sensitive credentials (gitignored)
 
 Environment variable substitution:
-- ${VAR_NAME} in config.yaml is replaced with value from .env
+- ${VAR_NAME} in config files is replaced with value from .env
+
+Local overrides:
+- Create config/config.local.yaml to override specific values per instance
+- Only needs to contain the values you want to override
+- Useful for testing different settings on Pi vs dev machine
 """
 
 import os
@@ -28,13 +34,43 @@ else:
         print(f"Warning: Using .env.example. Copy to .env and add real credentials.")
         load_dotenv(example_path)
 
-# Load config.yaml
+
+def deep_merge(base, override):
+    """
+    Deep merge two dictionaries (override into base)
+
+    Args:
+        base: Base dictionary
+        override: Dictionary with override values
+
+    Returns:
+        Merged dictionary (modifies base in place and returns it)
+    """
+    for key, value in override.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            # Recursively merge nested dicts
+            deep_merge(base[key], value)
+        else:
+            # Override value
+            base[key] = value
+    return base
+
+
+# Load base config.yaml
 config_path = PROJECT_ROOT / 'config' / 'config.yaml'
 if not config_path.exists():
     raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
 with open(config_path) as f:
     config = yaml.safe_load(f)
+
+# Load local overrides if they exist
+local_config_path = PROJECT_ROOT / 'config' / 'config.local.yaml'
+if local_config_path.exists():
+    with open(local_config_path) as f:
+        local_config = yaml.safe_load(f)
+        if local_config:  # Only merge if file has content
+            config = deep_merge(config, local_config)
 
 
 def resolve_env_vars(obj):
