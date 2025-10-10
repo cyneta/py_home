@@ -122,8 +122,8 @@ automation:
     target_temp_f: 72
 
   temp_coordination:
-    trigger_ac_above_f: 76
-    turn_off_ac_below_f: 74
+    # Night mode temperature for Master Suite
+    night_mode_temp_f: 66
 
   grow_light:
     on_time: "06:00"

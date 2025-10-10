@@ -38,47 +38,42 @@ def run():
     actions = []
     errors = []
 
-    # 1. Set Nest to sleep temperature
+    # 1. Set Nest to ECO mode (night mode - minimal whole-house conditioning)
     try:
         from components.nest import NestAPI
-        from lib.config import config
 
-        sleep_temp = config['nest']['sleep_temp']
         nest = NestAPI(dry_run=DRY_RUN)
 
         api_start = time.time()
-        nest.set_temperature(sleep_temp)
+        nest.set_eco_mode(True)
         duration_ms = int((time.time() - api_start) * 1000)
 
         kvlog(logger, logging.NOTICE, automation='goodnight', device='nest',
-              action='set_temp', target=sleep_temp, result='ok', duration_ms=duration_ms)
+              action='set_eco_mode', enabled=True, result='ok', duration_ms=duration_ms)
 
-        actions.append(f"Nest set to {sleep_temp}°F")
+        actions.append("Nest ECO mode enabled")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='goodnight', device='nest',
-              action='set_temp', error_type=type(e).__name__, error_msg=str(e))
+              action='set_eco_mode', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
-        actions.append(f"Nest failed: {str(e)[:30]}")
+        actions.append(f"Nest ECO failed: {str(e)[:30]}")
 
-    # 2. Turn off Sensibo AC
+    # 1b. Enable night mode flag (for temp_coordination)
     try:
-        from components.sensibo import SensiboAPI
+        from lib.night_mode import set_night_mode
 
-        sensibo = SensiboAPI(dry_run=DRY_RUN)
+        set_night_mode(True)
+        kvlog(logger, logging.NOTICE, automation='goodnight', action='night_mode', enabled=True)
 
-        api_start = time.time()
-        sensibo.turn_off()
-        duration_ms = int((time.time() - api_start) * 1000)
-
-        kvlog(logger, logging.NOTICE, automation='goodnight', device='sensibo',
-              action='turn_off', result='ok', duration_ms=duration_ms)
-
-        actions.append("AC turned off")
+        actions.append("Night mode: Master Suite only (66°F)")
     except Exception as e:
-        kvlog(logger, logging.ERROR, automation='goodnight', device='sensibo',
-              action='turn_off', error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Sensibo: {e}")
-        actions.append(f"AC failed: {str(e)[:30]}")
+        kvlog(logger, logging.ERROR, automation='goodnight', action='night_mode',
+              error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Night mode: {e}")
+        actions.append(f"Night mode failed: {str(e)[:30]}")
+
+    # 2. Sensibo (mini-split) will be handled by temp_coordination
+    # Night mode sets Sensibo to 66°F automatically
 
     # 3. Turn off all Tapo outlets
     try:
