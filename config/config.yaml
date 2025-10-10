@@ -104,7 +104,7 @@ presence:
     primary:
       name: "Matt's iPhone"
       ip: "192.168.50.189"  # Get from: Settings → WiFi → (i) → IP Address
-      mac: "32:46:F1:EE:AA:33"  # Get from: Settings → General → About → WiFi Address
+      # mac: "32:46:F1:EE:AA:33"  # Commented out - ping method uses IP only
       method: "ping"  # ping, arp, or auto (ping is most reliable for iPhones)
 
     # Add more devices if needed
