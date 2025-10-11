@@ -1,0 +1,15 @@
+[Unit]
+Description=py_home WiFi Event Monitor (Instant Home Detection)
+After=network.target
+
+[Service]
+Type=simple
+User=matt.wheeler
+WorkingDirectory=/home/matt.wheeler/py_home
+Environment="PYTHONPATH=/home/matt.wheeler/py_home"
+ExecStart=/home/matt.wheeler/py_home/venv/bin/python automations/wifi_event_monitor.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
