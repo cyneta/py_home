@@ -226,8 +226,8 @@ def should_trigger_arrival(trigger: str) -> Tuple[bool, Optional[str]]:
             return True, 'preheat'
 
     elif trigger == "near_home":
-        # Turn on lights when approaching (1-5km away)
-        if 1000 <= distance <= 5000:
+        # Turn on lights when crossing 1km geofence (inside 1km radius)
+        if distance <= 1000:
             return True, 'lights'
 
     elif trigger == "arriving_home":
