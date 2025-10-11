@@ -98,8 +98,8 @@ def check_presence():
                   error_type='ConfigError', error_msg='No primary device configured')
             return False
 
-        # Get device identifier (prefer MAC over IP)
-        identifier = primary_device.get('mac') or primary_device.get('ip')
+        # Get device identifier (prefer IP over MAC for ping method)
+        identifier = primary_device.get('ip') or primary_device.get('mac')
         method = primary_device.get('method', 'auto')
 
         if not identifier:

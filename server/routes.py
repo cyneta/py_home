@@ -132,6 +132,68 @@ def register_routes(app):
             ]
         })
 
+    @app.route('/api/nest/status')
+    def api_nest_status():
+        """Get Nest thermostat status (JSON API for dashboard)"""
+        try:
+            from components.nest import NestAPI
+            nest = NestAPI(dry_run=False)
+            status = nest.get_status()
+            return jsonify(status), 200
+        except Exception as e:
+            logger.error(f"Failed to get Nest status: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/sensibo/status')
+    def api_sensibo_status():
+        """Get Sensibo AC status (JSON API for dashboard)"""
+        try:
+            from components.sensibo import SensiboAPI
+            sensibo = SensiboAPI(dry_run=False)
+            status = sensibo.get_status()
+            return jsonify(status), 200
+        except Exception as e:
+            logger.error(f"Failed to get Sensibo status: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/tapo/status')
+    def api_tapo_status():
+        """Get Tapo smart outlets status (JSON API for dashboard)"""
+        try:
+            from components.tapo import TapoAPI
+            tapo = TapoAPI(dry_run=False)
+            devices = tapo.get_all_status()
+            return jsonify({'devices': devices}), 200
+        except Exception as e:
+            logger.error(f"Failed to get Tapo status: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/night-mode')
+    def api_night_mode():
+        """Get night mode status (JSON API for dashboard)"""
+        try:
+            from lib.night_mode import is_night_mode
+            import platform
+            import subprocess
+
+            # Get system uptime
+            if platform.system() == 'Linux':
+                with open('/proc/uptime', 'r') as f:
+                    uptime_seconds = float(f.readline().split()[0])
+                    days = int(uptime_seconds // 86400)
+                    hours = int((uptime_seconds % 86400) // 3600)
+                    uptime = f"{days}d {hours}h"
+            else:
+                uptime = "Unknown"
+
+            return jsonify({
+                'night_mode': is_night_mode(),
+                'uptime': uptime
+            }), 200
+        except Exception as e:
+            logger.error(f"Failed to get night mode status: {e}")
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/dashboard')
     def dashboard():
         """Real-time system status dashboard (HTML UI)"""
@@ -504,8 +566,8 @@ def register_routes(app):
         // Load dashboard on page load
         loadDashboard();
 
-        // Auto-refresh every 30 seconds
-        setInterval(loadDashboard, 30000);
+        // Auto-refresh every 5 seconds
+        setInterval(loadDashboard, 5000);
     </script>
 </body>
 </html>

@@ -19,7 +19,9 @@
       "Bash(git mv:*)",
       "Bash(ssh matt.wheeler@raspberrypi.local \"ls -la ~ | grep py_home || echo ''py_home directory does not exist''\")",
       "Bash(ssh:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(DRY_RUN=true python automations/goodnight.py)",
+      "Bash(scp:*)"
     ],
     "deny": [],
     "ask": []
