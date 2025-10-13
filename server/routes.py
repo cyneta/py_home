@@ -170,21 +170,20 @@ def register_routes(app):
 
     @app.route('/api/night-mode')
     def api_night_mode():
-        """Get night mode status (JSON API for dashboard)"""
+        """Get night mode status (DEPRECATED - use /api/system-status)"""
         try:
             from lib.night_mode import is_night_mode
-            import platform
-            import subprocess
+            from server import FLASK_START_TIME
 
-            # Get system uptime
-            if platform.system() == 'Linux':
-                with open('/proc/uptime', 'r') as f:
-                    uptime_seconds = float(f.readline().split()[0])
-                    days = int(uptime_seconds // 86400)
-                    hours = int((uptime_seconds % 86400) // 3600)
-                    uptime = f"{days}d {hours}h"
+            # Calculate Flask uptime (not Pi uptime)
+            uptime_seconds = time.time() - FLASK_START_TIME
+            days = int(uptime_seconds // 86400)
+            hours = int((uptime_seconds % 86400) // 3600)
+
+            if days > 0:
+                uptime = f"{days}d {hours}h"
             else:
-                uptime = "Unknown"
+                uptime = f"{hours}h"
 
             return jsonify({
                 'night_mode': is_night_mode(),
@@ -192,6 +191,226 @@ def register_routes(app):
             }), 200
         except Exception as e:
             logger.error(f"Failed to get night mode status: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/presence')
+    def api_presence():
+        """Get current presence status from .presence_state file"""
+        try:
+            state_file = os.path.join(os.path.dirname(__file__), '..', '.presence_state')
+
+            if not os.path.exists(state_file):
+                return jsonify({
+                    'is_home': None,
+                    'state': 'unknown',
+                    'source': 'unknown',
+                    'last_updated': None,
+                    'age_seconds': None
+                }), 200
+
+            # Read state
+            with open(state_file, 'r') as f:
+                state = f.read().strip().lower()
+
+            # Get file modification time
+            mtime = os.path.getmtime(state_file)
+            from datetime import datetime
+            age_seconds = time.time() - mtime
+            last_updated = datetime.fromtimestamp(mtime).isoformat()
+
+            return jsonify({
+                'is_home': state == 'home',
+                'state': state,
+                'source': 'presence_monitor',
+                'last_updated': last_updated,
+                'age_seconds': round(age_seconds, 1)
+            }), 200
+
+        except Exception as e:
+            logger.error(f"Failed to get presence status: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/system-status')
+    def api_system_status():
+        """Get comprehensive system status with Flask uptime"""
+        try:
+            from server import FLASK_START_TIME
+            import platform
+
+            # Calculate Flask uptime
+            uptime_seconds = time.time() - FLASK_START_TIME
+            days = int(uptime_seconds // 86400)
+            hours = int((uptime_seconds % 86400) // 3600)
+            minutes = int((uptime_seconds % 3600) // 60)
+
+            if days > 0:
+                uptime = f"{days}d {hours}h"
+            elif hours > 0:
+                uptime = f"{hours}h {minutes}m"
+            else:
+                uptime = f"{minutes}m"
+
+            # Get night mode
+            from lib.night_mode import is_night_mode
+            night_mode = is_night_mode()
+
+            # Check system health
+            health_status = 'operational'
+            services = {}
+
+            # Check if presence state is stale
+            state_file = os.path.join(os.path.dirname(__file__), '..', '.presence_state')
+            if os.path.exists(state_file):
+                age = time.time() - os.path.getmtime(state_file)
+                if age > 600:  # 10 minutes
+                    health_status = 'degraded'
+                    services['presence_monitor'] = {
+                        'status': 'stale',
+                        'type': 'cron',
+                        'age_seconds': int(age)
+                    }
+                else:
+                    services['presence_monitor'] = {'status': 'active', 'type': 'cron'}
+            else:
+                health_status = 'degraded'
+                services['presence_monitor'] = {'status': 'unknown', 'type': 'cron'}
+
+            # Check automation disable flag
+            disable_file = os.path.join(os.path.dirname(__file__), '..', '.automation_disabled')
+            automations_enabled = not os.path.exists(disable_file)
+
+            return jsonify({
+                'status': health_status,
+                'flask_uptime': uptime,
+                'flask_uptime_seconds': int(uptime_seconds),
+                'night_mode': night_mode,
+                'automations_enabled': automations_enabled,
+                'services': services,
+                'platform': platform.system()
+            }), 200
+
+        except Exception as e:
+            logger.error(f"Failed to get system status: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/automation-control', methods=['GET', 'POST'])
+    def api_automation_control():
+        """Enable/disable all automations (master switch)"""
+        disable_file = os.path.join(os.path.dirname(__file__), '..', '.automation_disabled')
+
+        if request.method == 'GET':
+            # Get current status
+            enabled = not os.path.exists(disable_file)
+            return jsonify({
+                'automations_enabled': enabled,
+                'status': 'enabled' if enabled else 'disabled'
+            }), 200
+
+        elif request.method == 'POST':
+            # Set status
+            data = request.get_json() or {}
+            enable = data.get('enable', True)
+
+            try:
+                if enable:
+                    # Enable automations (remove disable file)
+                    if os.path.exists(disable_file):
+                        os.remove(disable_file)
+                    kvlog(logger, logging.NOTICE, event='automations_enabled', user='api')
+                    return jsonify({
+                        'automations_enabled': True,
+                        'status': 'enabled',
+                        'message': 'Automations enabled'
+                    }), 200
+                else:
+                    # Disable automations (create disable file)
+                    with open(disable_file, 'w') as f:
+                        f.write(f"Disabled at {time.time()}\n")
+                    kvlog(logger, logging.NOTICE, event='automations_disabled', user='api')
+                    return jsonify({
+                        'automations_enabled': False,
+                        'status': 'disabled',
+                        'message': 'Automations disabled'
+                    }), 200
+
+            except Exception as e:
+                logger.error(f"Failed to change automation status: {e}")
+                return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/shutdown', methods=['POST'])
+    def api_shutdown():
+        """
+        Safely shutdown the Raspberry Pi
+
+        Returns:
+            JSON with shutdown status
+
+        Note: After triggering shutdown, LED will stop blinking within 30-60 seconds.
+              Wait for LED to go dark before unplugging power.
+        """
+        kvlog(logger, logging.WARNING, event='shutdown_requested', user='api', source=request.remote_addr)
+
+        try:
+            # Trigger shutdown in background (gives us time to return response)
+            import platform
+            if platform.system() == 'Linux':
+                subprocess.Popen(['sudo', 'shutdown', '-h', 'now'])
+                return jsonify({
+                    'status': 'shutdown_initiated',
+                    'message': 'System shutting down. Wait for LED to stop blinking before unplugging power.',
+                    'estimated_time_seconds': 60
+                }), 200
+            else:
+                return jsonify({
+                    'status': 'not_supported',
+                    'message': 'Shutdown only supported on Linux/Raspberry Pi',
+                    'platform': platform.system()
+                }), 400
+
+        except Exception as e:
+            kvlog(logger, logging.ERROR, event='shutdown_failed', error_type=type(e).__name__, error_msg=str(e))
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/service-control', methods=['POST'])
+    def api_service_control():
+        """
+        Control py_home Flask service (stop/start/restart)
+
+        POST body:
+            action: 'stop', 'start', or 'restart'
+
+        Returns:
+            JSON with service control status
+        """
+        data = request.get_json() or {}
+        action = data.get('action', '').lower()
+
+        if action not in ['stop', 'start', 'restart']:
+            return jsonify({'error': 'Invalid action. Must be stop, start, or restart'}), 400
+
+        kvlog(logger, logging.WARNING, event='service_control_requested', action=action, user='api', source=request.remote_addr)
+
+        try:
+            import platform
+            if platform.system() == 'Linux':
+                # Trigger service control in background (gives us time to return response)
+                subprocess.Popen(['sudo', 'systemctl', action, 'py_home'])
+
+                return jsonify({
+                    'status': 'initiated',
+                    'action': action,
+                    'message': f'Service {action} initiated. Flask will {action} shortly.',
+                    'note': 'Restart' if action == 'restart' else f'Service will {action}'
+                }), 200
+            else:
+                return jsonify({
+                    'status': 'not_supported',
+                    'message': 'Service control only supported on Linux',
+                    'platform': platform.system()
+                }), 400
+
+        except Exception as e:
+            kvlog(logger, logging.ERROR, event='service_control_failed', action=action, error_type=type(e).__name__, error_msg=str(e))
             return jsonify({'error': str(e)}), 500
 
     @app.route('/dashboard')
@@ -342,12 +561,12 @@ def register_routes(app):
 
             try {
                 // Load all status data in parallel
-                const [nest, sensibo, tapo, location, nightMode] = await Promise.all([
+                const [nest, sensibo, tapo, presence, systemStatus] = await Promise.all([
                     fetchNestStatus(),
                     fetchSensiboStatus(),
                     fetchTapoStatus(),
-                    fetchLocation(),
-                    fetchNightMode()
+                    fetchPresence(),
+                    fetchSystemStatus()
                 ]);
 
                 // Build dashboard HTML
@@ -356,8 +575,8 @@ def register_routes(app):
                         ${renderNestCard(nest)}
                         ${renderSensiboCard(sensibo)}
                         ${renderTapoCard(tapo)}
-                        ${renderLocationCard(location)}
-                        ${renderSystemCard(nightMode)}
+                        ${renderPresenceCard(presence)}
+                        ${renderSystemCard(systemStatus)}
                     </div>
                 `;
 
@@ -370,21 +589,33 @@ def register_routes(app):
         }
 
         async function fetchNestStatus() {
-            // In dry-run mode, return mock data
             try {
                 const response = await fetch('/api/nest/status');
                 if (response.ok) {
-                    return await response.json();
+                    const data = await response.json();
+                    data._stale = false;
+                    data._error = false;
+                    return data;
                 }
-            } catch (e) {}
+            } catch (e) {
+                return {
+                    _error: true,
+                    error: e.message,
+                    current_temp_f: 0,
+                    mode: 'UNKNOWN',
+                    hvac_status: 'ERROR'
+                };
+            }
 
-            // Mock data for now (will implement API endpoint)
+            // Fallback mock data
             return {
                 current_temp_f: 72.5,
                 mode: 'HEAT',
                 heat_setpoint_f: 72,
                 hvac_status: 'OFF',
-                humidity: 52
+                humidity: 52,
+                _stale: false,
+                _error: false
             };
         }
 
@@ -392,16 +623,29 @@ def register_routes(app):
             try {
                 const response = await fetch('/api/sensibo/status');
                 if (response.ok) {
-                    return await response.json();
+                    const data = await response.json();
+                    data._stale = false;
+                    data._error = false;
+                    return data;
                 }
-            } catch (e) {}
+            } catch (e) {
+                return {
+                    _error: true,
+                    error: e.message,
+                    on: false,
+                    mode: 'unknown',
+                    current_temp_f: 0
+                };
+            }
 
             return {
                 on: true,
                 mode: 'heat',
                 target_temp_f: 70,
                 current_temp_f: 70.0,
-                humidity: 65.6
+                humidity: 65.6,
+                _stale: false,
+                _error: false
             };
         }
 
@@ -409,9 +653,18 @@ def register_routes(app):
             try {
                 const response = await fetch('/api/tapo/status');
                 if (response.ok) {
-                    return await response.json();
+                    const data = await response.json();
+                    data._stale = false;
+                    data._error = false;
+                    return data;
                 }
-            } catch (e) {}
+            } catch (e) {
+                return {
+                    _error: true,
+                    error: e.message,
+                    devices: []
+                };
+            }
 
             return {
                 devices: [
@@ -419,37 +672,92 @@ def register_routes(app):
                     {name: 'Bedroom Left Lamp', on: true},
                     {name: 'Bedroom Right Lamp', on: true},
                     {name: 'Heater', on: false}
-                ]
+                ],
+                _stale: false,
+                _error: false
             };
         }
 
-        async function fetchLocation() {
+        async function fetchPresence() {
             try {
-                const response = await fetch('/location');
+                const response = await fetch('/api/presence');
                 if (response.ok) {
-                    return await response.json();
+                    const data = await response.json();
+
+                    // Check staleness (5 minutes = 300 seconds)
+                    if (data.age_seconds !== null && data.age_seconds > 300) {
+                        data._stale = true;
+                    } else {
+                        data._stale = false;
+                    }
+                    data._error = false;
+                    return data;
                 }
-            } catch (e) {}
+            } catch (e) {
+                return {
+                    _error: true,
+                    error: e.message,
+                    state: 'unknown',
+                    is_home: null
+                };
+            }
 
             return {
-                is_home: true,
-                distance_from_home_meters: 0
+                is_home: null,
+                state: 'unknown',
+                source: 'unknown',
+                _stale: true,
+                _error: false
             };
         }
 
-        async function fetchNightMode() {
-            // Check if night mode file exists
+        async function fetchSystemStatus() {
+            try {
+                const response = await fetch('/api/system-status');
+                if (response.ok) {
+                    const data = await response.json();
+                    data._stale = false;
+                    data._error = false;
+                    return data;
+                }
+            } catch (e) {
+                return {
+                    _error: true,
+                    error: e.message,
+                    status: 'error',
+                    flask_uptime: 'unknown',
+                    night_mode: false,
+                    automations_enabled: false
+                };
+            }
+
             return {
+                status: 'unknown',
+                flask_uptime: 'unknown',
                 night_mode: false,
-                uptime: '3 days'
+                automations_enabled: true,
+                _stale: false,
+                _error: false
             };
+        }
+
+        function formatAge(ageSeconds) {
+            if (ageSeconds === null) return 'unknown';
+            if (ageSeconds < 60) return `${Math.round(ageSeconds)}s ago`;
+            if (ageSeconds < 3600) return `${Math.round(ageSeconds / 60)}m ago`;
+            return `${Math.round(ageSeconds / 3600)}h ago`;
         }
 
         function renderNestCard(data) {
             const statusClass = data.hvac_status === 'OFF' ? 'status-good' : 'status-warning';
+            const staleWarning = data._stale ? '<div class="status-row"><span class="status-warning">⚠️ Data may be stale</span></div>' : '';
+            const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading data</span></div>' : '';
+
             return `
                 <div class="card">
                     <div class="card-title">🌡️ Nest Thermostat</div>
+                    ${errorWarning}
+                    ${staleWarning}
                     <div class="temp-display">${data.current_temp_f}°F</div>
                     <div class="status-row">
                         <span class="status-label">Mode</span>
@@ -472,16 +780,17 @@ def register_routes(app):
         }
 
         function renderSensiboCard(data) {
-            const powerBadge = data.on ? 'badge-online' : 'badge-offline';
-            const powerText = data.on ? 'ON' : 'OFF';
+            const hvacStatus = data.on ? 'RUNNING' : 'OFF';
+            const statusClass = data.on ? 'status-warning' : 'status-good';
+            const staleWarning = data._stale ? '<div class="status-row"><span class="status-warning">⚠️ Data may be stale</span></div>' : '';
+            const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading data</span></div>' : '';
+
             return `
                 <div class="card">
                     <div class="card-title">❄️ Sensibo AC (Master Suite)</div>
+                    ${errorWarning}
+                    ${staleWarning}
                     <div class="temp-display">${data.current_temp_f}°F</div>
-                    <div class="status-row">
-                        <span class="status-label">Power</span>
-                        <span class="badge ${powerBadge}">${powerText}</span>
-                    </div>
                     <div class="status-row">
                         <span class="status-label">Mode</span>
                         <span class="status-value">${data.mode.toUpperCase()}</span>
@@ -489,6 +798,10 @@ def register_routes(app):
                     <div class="status-row">
                         <span class="status-label">Target</span>
                         <span class="status-value">${data.target_temp_f}°F</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">HVAC</span>
+                        <span class="status-value ${statusClass}">${hvacStatus}</span>
                     </div>
                     <div class="status-row">
                         <span class="status-label">Humidity</span>
@@ -499,9 +812,14 @@ def register_routes(app):
         }
 
         function renderTapoCard(data) {
+            const staleWarning = data._stale ? '<div class="status-row"><span class="status-warning">⚠️ Data may be stale</span></div>' : '';
+            const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading data</span></div>' : '';
+
             return `
                 <div class="card">
                     <div class="card-title">💡 Smart Outlets</div>
+                    ${errorWarning}
+                    ${staleWarning}
                     ${data.devices.map(device => `
                         <div class="status-row">
                             <span class="status-label">${device.name}</span>
@@ -514,28 +832,36 @@ def register_routes(app):
             `;
         }
 
-        function renderLocationCard(data) {
-            const locationBadge = data.is_home ? 'badge-home' : 'badge-away';
-            const locationText = data.is_home ? 'HOME' : 'AWAY';
-            const distance = data.is_home ? '0 m' : `${Math.round(data.distance_from_home_meters)} m`;
+        function renderPresenceCard(data) {
+            const locationBadge = data.is_home === true ? 'badge-home' :
+                                  data.is_home === false ? 'badge-away' : 'badge-offline';
+            const locationText = data.is_home === true ? 'HOME' :
+                                 data.is_home === false ? 'AWAY' : 'UNKNOWN';
+
+            // Check if data is stale (>5 minutes)
+            const isStale = data.age_seconds !== null && data.age_seconds > 300;
+            const ageText = formatAge(data.age_seconds);
+            const staleClass = isStale ? 'status-warning' : '';
+            const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading presence</span></div>' : '';
 
             return `
                 <div class="card">
-                    <div class="card-title">📍 Location</div>
+                    <div class="card-title">📍 Presence</div>
+                    ${errorWarning}
                     <div class="status-row">
                         <span class="status-label">Status</span>
                         <span class="badge ${locationBadge}">${locationText}</span>
                     </div>
-                    <div class="status-row">
-                        <span class="status-label">Distance from Home</span>
-                        <span class="status-value">${distance}</span>
-                    </div>
-                    ${data.eta ? `
+                    ${data.last_updated ? `
                         <div class="status-row">
-                            <span class="status-label">ETA</span>
-                            <span class="status-value">${data.eta.duration_in_traffic_minutes} min</span>
+                            <span class="status-label">Last Checked</span>
+                            <span class="status-value ${staleClass}">${isStale ? '⚠️ ' : ''}${ageText}</span>
                         </div>
                     ` : ''}
+                    <div class="status-row">
+                        <span class="status-label">Source</span>
+                        <span class="status-value">${data.source || 'unknown'}</span>
+                    </div>
                 </div>
             `;
         }
@@ -544,30 +870,225 @@ def register_routes(app):
             const modeBadge = data.night_mode ? 'badge-warning' : 'badge-online';
             const modeText = data.night_mode ? 'NIGHT MODE' : 'DAY MODE';
 
+            const statusBadge = data.status === 'operational' ? 'badge-online' :
+                               data.status === 'degraded' ? 'badge-warning' : 'badge-offline';
+            const statusText = data.status === 'operational' ? 'OPERATIONAL' :
+                              data.status === 'degraded' ? 'DEGRADED' : 'ERROR';
+
+            const automationsBadge = data.automations_enabled ? 'badge-online' : 'badge-offline';
+            const automationsText = data.automations_enabled ? 'ENABLED' : 'DISABLED';
+
+            const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading system status</span></div>' : '';
+
             return `
                 <div class="card">
                     <div class="card-title">⚙️ System</div>
+                    ${errorWarning}
+                    <div class="status-row">
+                        <span class="status-label">Status</span>
+                        <span class="badge ${statusBadge}">${statusText}</span>
+                    </div>
                     <div class="status-row">
                         <span class="status-label">Mode</span>
                         <span class="badge ${modeBadge}">${modeText}</span>
                     </div>
                     <div class="status-row">
-                        <span class="status-label">Uptime</span>
-                        <span class="status-value">${data.uptime}</span>
+                        <span class="status-label">Automations</span>
+                        <span class="badge ${automationsBadge}">${automationsText}</span>
                     </div>
                     <div class="status-row">
-                        <span class="status-label">Service</span>
-                        <span class="status-value status-good">Running</span>
+                        <span class="status-label">Flask Uptime</span>
+                        <span class="status-value">${data.flask_uptime || 'unknown'}</span>
+                    </div>
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #21262d;">
+                        <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                            <button
+                                onclick="toggleAutomations(${data.automations_enabled})"
+                                id="automationToggleBtn"
+                                style="
+                                    flex: 1;
+                                    background: ${data.automations_enabled ? '#392f1a' : '#1a472a'};
+                                    border: 1px solid ${data.automations_enabled ? '#d29922' : '#3fb950'};
+                                    color: ${data.automations_enabled ? '#d29922' : '#3fb950'};
+                                    padding: 8px;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                    font-size: 12px;
+                                    font-weight: 600;
+                                "
+                                onmouseover="this.style.opacity='0.8'"
+                                onmouseout="this.style.opacity='1'"
+                            >
+                                ${data.automations_enabled ? '⏸️ Disable Automations' : '▶️ Enable Automations'}
+                            </button>
+                            <button
+                                onclick="controlService('restart')"
+                                style="
+                                    flex: 1;
+                                    background: #21262d;
+                                    border: 1px solid #30363d;
+                                    color: #c9d1d9;
+                                    padding: 8px;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                    font-size: 12px;
+                                    font-weight: 600;
+                                "
+                                onmouseover="this.style.background='#30363d'"
+                                onmouseout="this.style.background='#21262d'"
+                            >
+                                🔄 Restart Flask
+                            </button>
+                        </div>
+                        <button
+                            onclick="shutdownPi()"
+                            id="shutdownBtn"
+                            style="
+                                width: 100%;
+                                background: #3d1f1f;
+                                border: 1px solid #f85149;
+                                color: #f85149;
+                                padding: 10px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 600;
+                            "
+                            onmouseover="this.style.background='#4a2626'"
+                            onmouseout="this.style.background='#3d1f1f'"
+                        >
+                            🔌 Shutdown Pi
+                        </button>
+                        <div id="serviceStatus" style="margin-top: 10px; text-align: center; font-size: 12px; color: #8b949e;"></div>
                     </div>
                 </div>
             `;
+        }
+
+        async function controlService(action) {
+            const status = document.getElementById('serviceStatus');
+            const actionText = action === 'stop' ? 'Stop' : action === 'restart' ? 'Restart' : 'Start';
+
+            if (!confirm(`${actionText} Flask server?\\n\\n${action === 'stop' ? 'Dashboard will become unavailable.' : action === 'restart' ? 'Dashboard will reload in ~5 seconds.' : 'Flask will start.'}`)) {
+                return;
+            }
+
+            status.innerHTML = `<span style="color: #d29922;">⏳ ${actionText}ing Flask...</span>`;
+
+            try {
+                const response = await fetch('/api/service-control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    status.innerHTML = `<span style="color: #3fb950;">✓ ${actionText} initiated</span>`;
+
+                    if (action === 'restart') {
+                        setTimeout(() => {
+                            status.innerHTML = '<span style="color: #d29922;">⏳ Waiting for Flask...</span>';
+                            setTimeout(() => window.location.reload(), 5000);
+                        }, 2000);
+                    } else if (action === 'stop') {
+                        clearInterval(window.dashboardRefreshInterval);
+                        setTimeout(() => {
+                            status.innerHTML = '<span style="color: #8b949e;">Flask stopped. Refresh page to reconnect.</span>';
+                        }, 2000);
+                    }
+                } else {
+                    status.innerHTML = `<span style="color: #f85149;">❌ ${data.message || 'Failed'}</span>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<span style="color: #f85149;">❌ ${error.message}</span>`;
+            }
+        }
+
+        async function toggleAutomations(currentlyEnabled) {
+            const status = document.getElementById('serviceStatus');
+            const action = currentlyEnabled ? 'disable' : 'enable';
+
+            if (!confirm(`${action === 'disable' ? 'Disable' : 'Enable'} all automations?\\n\\n${action === 'disable' ? 'Home automations will stop running but dashboard stays active.' : 'Home automations will resume normal operation.'}`)) {
+                return;
+            }
+
+            status.innerHTML = `<span style="color: #d29922;">⏳ ${action === 'disable' ? 'Disabling' : 'Enabling'} automations...</span>`;
+
+            try {
+                const response = await fetch('/api/automation-control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable: !currentlyEnabled })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    status.innerHTML = `<span style="color: #3fb950;">✓ Automations ${action === 'disable' ? 'disabled' : 'enabled'}</span>`;
+                    // Reload dashboard to show new status
+                    setTimeout(() => loadDashboard(), 1000);
+                } else {
+                    status.innerHTML = `<span style="color: #f85149;">❌ ${data.message || 'Failed'}</span>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<span style="color: #f85149;">❌ ${error.message}</span>`;
+            }
+        }
+
+        async function shutdownPi() {
+            const btn = document.getElementById('shutdownBtn');
+            const status = document.getElementById('serviceStatus');
+
+            if (!confirm('Shutdown the Raspberry Pi?\\n\\nThe system will power down. Wait for the LED to stop blinking before unplugging power.')) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Shutting down...';
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = '0.6';
+
+            try {
+                const response = await fetch('/api/shutdown', { method: 'POST' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    status.innerHTML = '<span style="color: #d29922;">⚠️ System shutting down<br>Wait for LED to stop blinking<br>Then safe to unplug power</span>';
+
+                    // Stop auto-refresh
+                    clearInterval(window.dashboardRefreshInterval);
+
+                    // Show countdown
+                    let seconds = 60;
+                    const countdown = setInterval(() => {
+                        status.innerHTML = `<span style="color: #d29922;">⚠️ Shutdown in progress (${seconds}s)<br>LED will stop blinking soon<br>Then safe to unplug</span>`;
+                        seconds--;
+                        if (seconds < 0) {
+                            clearInterval(countdown);
+                            status.innerHTML = '<span style="color: #3fb950;">✓ System halted<br>LED should be OFF<br>Safe to unplug power now</span>';
+                        }
+                    }, 1000);
+                } else {
+                    status.innerHTML = `<span style="color: #f85149;">❌ ${data.message || 'Shutdown failed'}</span>`;
+                    btn.disabled = false;
+                    btn.textContent = '🔌 Shutdown Pi';
+                    btn.style.cursor = 'pointer';
+                    btn.style.opacity = '1';
+                }
+            } catch (error) {
+                status.innerHTML = `<span style="color: #f85149;">❌ ${error.message}</span>`;
+                btn.disabled = false;
+                btn.textContent = '🔌 Shutdown Pi';
+                btn.style.cursor = 'pointer';
+                btn.style.opacity = '1';
+            }
         }
 
         // Load dashboard on page load
         loadDashboard();
 
         // Auto-refresh every 5 seconds
-        setInterval(loadDashboard, 5000);
+        window.dashboardRefreshInterval = setInterval(loadDashboard, 5000);
     </script>
 </body>
 </html>
