@@ -149,13 +149,10 @@ async def main():
 
     args = parser.parse_args()
 
-    # All plugs including Kitchen plug
-    all_plugs = [
-        ('192.168.50.135', 'Kitchen plug'),  # Plug 1
-        ('192.168.50.143', None),            # Plug 2
-        ('192.168.50.162', 'Test Plug'),     # Plug 3
-        ('192.168.50.93', None)              # Plug 4
-    ]
+    # Load plugs from config
+    from lib.config import config
+    outlets = config['tapo']['outlets']
+    all_plugs = [(outlet['ip'], outlet['name']) for outlet in outlets]
 
     # Determine which plugs to process
     if args.plugs:

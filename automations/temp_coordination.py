@@ -59,7 +59,9 @@ def run():
         else:
             # Fallback to ping if state file doesn't exist
             from components.network import is_device_home
-            is_home = is_device_home('192.168.50.189')
+            from lib.config import config
+            primary_ip = config['presence']['devices']['primary']['ip']
+            is_home = is_device_home(primary_ip)
 
         results['is_home'] = is_home
         logger.info(f"Presence: {'HOME' if is_home else 'AWAY'}")

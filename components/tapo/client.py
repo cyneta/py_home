@@ -86,8 +86,8 @@ class TapoAPI:
             ip: IP address (alternative to name)
 
         Example:
-            >>> tapo.turn_on("Kitchen plug")
-            >>> tapo.turn_on(ip="192.168.50.135")
+            >>> tapo.turn_on("Livingroom Lamp")
+            >>> tapo.turn_on(ip="192.168.50.162")
         """
         if outlet_name:
             outlet = self.get_outlet_by_name(outlet_name)

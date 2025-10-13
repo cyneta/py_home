@@ -73,7 +73,8 @@ def demo_4_by_ip():
     print("="*60)
 
     tapo = TapoAPI()
-    ip = "192.168.50.162"
+    from lib.config import config
+    ip = config['tapo']['outlets'][0]['ip']  # Use first outlet as example
 
     print(f"\nControlling plug at {ip}...")
     status = tapo.get_status(ip=ip)
