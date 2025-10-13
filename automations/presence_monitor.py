@@ -25,6 +25,11 @@ logger = logging.getLogger(__name__)
 
 # State file to track previous presence
 STATE_FILE = os.path.join(os.path.dirname(__file__), '..', '.presence_state')
+FAIL_COUNT_FILE = os.path.join(os.path.dirname(__file__), '..', '.presence_fail_count')
+
+# Robustness: Require N consecutive ping failures before declaring "away"
+# This prevents false "away" events from temporary network issues
+REQUIRED_FAILURES = 3  # 3 failures = 6 minutes of no response
 
 
 def get_previous_state():
@@ -60,6 +65,37 @@ def save_state(is_home):
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='presence_monitor', action='save_state',
               error_type=type(e).__name__, error_msg=str(e))
+
+
+def get_fail_count():
+    """Get consecutive ping failure count"""
+    if not os.path.exists(FAIL_COUNT_FILE):
+        return 0
+    try:
+        with open(FAIL_COUNT_FILE, 'r') as f:
+            return int(f.read().strip())
+    except:
+        return 0
+
+
+def increment_fail_count():
+    """Increment consecutive failure count"""
+    count = get_fail_count() + 1
+    try:
+        with open(FAIL_COUNT_FILE, 'w') as f:
+            f.write(str(count))
+    except:
+        pass
+    return count
+
+
+def reset_fail_count():
+    """Reset failure count (device responded)"""
+    try:
+        if os.path.exists(FAIL_COUNT_FILE):
+            os.remove(FAIL_COUNT_FILE)
+    except:
+        pass
 
 
 def check_presence():
@@ -98,22 +134,21 @@ def check_presence():
                   error_type='ConfigError', error_msg='No primary device configured')
             return False
 
-        # Get device identifier (prefer IP over MAC for ping method)
-        identifier = primary_device.get('ip') or primary_device.get('mac')
-        method = primary_device.get('method', 'auto')
+        # Get device IP address
+        ip_address = primary_device.get('ip')
 
-        if not identifier:
+        if not ip_address:
             kvlog(logger, logging.ERROR, automation='presence_monitor', action='check_presence',
-                  error_type='ConfigError', error_msg='Device has no IP or MAC configured')
+                  error_type='ConfigError', error_msg='Device has no IP configured')
             return False
 
         # Check if device is home
-        is_home = is_device_home(identifier, method=method)
+        is_home = is_device_home(ip_address)
         duration_ms = int((time.time() - api_start) * 1000)
 
         device_name = primary_device.get('name', 'Device')
         kvlog(logger, logging.INFO, automation='presence_monitor', action='check_presence',
-              device=device_name, identifier=identifier, status='home' if is_home else 'away',
+              device=device_name, ip=ip_address, status='home' if is_home else 'away',
               result='ok', duration_ms=duration_ms)
 
         return is_home
@@ -178,22 +213,26 @@ def trigger_automation(script_name):
 
 
 def run():
-    """Execute presence monitoring"""
+    """Execute presence monitoring with robustness (if in doubt, don't change state)"""
     start_time = time.time()
     timestamp = datetime.now().isoformat()
     kvlog(logger, logging.NOTICE, automation='presence_monitor', event='start', timestamp=timestamp)
 
     # Check current presence
-    currently_home = check_presence()
+    ping_success = check_presence()
 
     # Get previous state
     was_home = get_previous_state()
+    fail_count = get_fail_count()
 
     # Log state
     if was_home is None:
+        # First run - initialize
         kvlog(logger, logging.INFO, automation='presence_monitor', action='initialize',
-              state='home' if currently_home else 'away')
-        save_state(currently_home)
+              state='home' if ping_success else 'away')
+        save_state(ping_success)
+        if not ping_success:
+            reset_fail_count()  # Start fresh
 
         total_duration_ms = int((time.time() - start_time) * 1000)
         kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
@@ -202,74 +241,124 @@ def run():
         return {
             'timestamp': timestamp,
             'action': 'initialize',
-            'state': 'home' if currently_home else 'away'
+            'state': 'home' if ping_success else 'away'
         }
 
-    # Detect state CHANGE
-    if currently_home and not was_home:
-        # ARRIVED HOME
-        kvlog(logger, logging.NOTICE, automation='presence_monitor', action='state_change',
-              change='arrived', prev_state='away', new_state='home')
+    # ROBUSTNESS LOGIC: Only declare "away" after multiple consecutive failures
+    if ping_success:
+        # Device responded - definitely home
+        reset_fail_count()
 
-        # Trigger im_home automation (it will send notification with actions)
-        trigger_automation('im_home.py')
+        if not was_home:
+            # ARRIVED HOME (transitioning from away → home)
+            kvlog(logger, logging.NOTICE, automation='presence_monitor', action='state_change',
+                  change='arrived', prev_state='away', new_state='home')
 
-        # Save new state
-        save_state(True)
+            # Trigger im_home automation (it will send notification with actions)
+            trigger_automation('im_home.py')
 
-        # Note: No notification here - im_home.py will send one with action summary
+            # Save new state
+            save_state(True)
 
-        total_duration_ms = int((time.time() - start_time) * 1000)
-        kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
-              duration_ms=total_duration_ms)
+            total_duration_ms = int((time.time() - start_time) * 1000)
+            kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+                  duration_ms=total_duration_ms)
 
-        return {
-            'timestamp': timestamp,
-            'action': 'arrived',
-            'state': 'home',
-            'automation': 'im_home.py'
-        }
+            return {
+                'timestamp': timestamp,
+                'action': 'arrived',
+                'state': 'home',
+                'automation': 'im_home.py'
+            }
+        else:
+            # Still home, no change
+            kvlog(logger, logging.INFO, automation='presence_monitor', action='no_change',
+                  state='home')
 
-    elif not currently_home and was_home:
-        # LEFT HOME
-        kvlog(logger, logging.NOTICE, automation='presence_monitor', action='state_change',
-              change='departed', prev_state='home', new_state='away')
+            # Update file timestamp to show we're still monitoring
+            save_state(True)
 
-        # Trigger leaving_home automation (it will send notification with actions)
-        trigger_automation('leaving_home.py')
+            total_duration_ms = int((time.time() - start_time) * 1000)
+            kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+                  duration_ms=total_duration_ms)
 
-        # Save new state
-        save_state(False)
-
-        # Note: No notification here - leaving_home.py will send one with action summary
-
-        total_duration_ms = int((time.time() - start_time) * 1000)
-        kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
-              duration_ms=total_duration_ms)
-
-        return {
-            'timestamp': timestamp,
-            'action': 'departed',
-            'state': 'away',
-            'automation': 'leaving_home.py'
-        }
+            return {
+                'timestamp': timestamp,
+                'action': 'no_change',
+                'state': 'home'
+            }
 
     else:
-        # NO CHANGE
-        state_name = 'home' if currently_home else 'away'
-        kvlog(logger, logging.INFO, automation='presence_monitor', action='no_change',
-              state=state_name)
+        # Ping failed - might be away, or might be temporary network issue
+        new_fail_count = increment_fail_count()
 
-        total_duration_ms = int((time.time() - start_time) * 1000)
-        kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
-              duration_ms=total_duration_ms)
+        if was_home:
+            # Currently marked as home, but ping failing
+            if new_fail_count >= REQUIRED_FAILURES:
+                # Multiple consecutive failures - now confident device left
+                kvlog(logger, logging.NOTICE, automation='presence_monitor', action='state_change',
+                      change='departed', prev_state='home', new_state='away',
+                      fail_count=new_fail_count, required=REQUIRED_FAILURES)
 
-        return {
-            'timestamp': timestamp,
-            'action': 'no_change',
-            'state': state_name
-        }
+                # Trigger leaving_home automation
+                trigger_automation('leaving_home.py')
+
+                # Save new state
+                save_state(False)
+
+                total_duration_ms = int((time.time() - start_time) * 1000)
+                kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+                      duration_ms=total_duration_ms)
+
+                return {
+                    'timestamp': timestamp,
+                    'action': 'departed',
+                    'state': 'away',
+                    'automation': 'leaving_home.py',
+                    'fail_count': new_fail_count
+                }
+            else:
+                # Not enough failures yet - assume still home (if in doubt, don't change)
+                kvlog(logger, logging.WARNING, automation='presence_monitor', action='ping_failed',
+                      state='home', fail_count=new_fail_count, required=REQUIRED_FAILURES,
+                      message='Assuming still home until more failures')
+
+                total_duration_ms = int((time.time() - start_time) * 1000)
+                kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+                      duration_ms=total_duration_ms)
+
+                return {
+                    'timestamp': timestamp,
+                    'action': 'no_change',
+                    'state': 'home',
+                    'fail_count': new_fail_count,
+                    'message': 'Ping failed but assuming still home'
+                }
+        else:
+            # Already marked as away, ping still failing
+            kvlog(logger, logging.INFO, automation='presence_monitor', action='no_change',
+                  state='away', fail_count=new_fail_count)
+
+            # Update file timestamp to show we're still monitoring
+            save_state(False)
+
+            total_duration_ms = int((time.time() - start_time) * 1000)
+            kvlog(logger, logging.NOTICE, automation='presence_monitor', event='complete',
+                  duration_ms=total_duration_ms)
+
+            return {
+                'timestamp': timestamp,
+                'action': 'no_change',
+                'state': 'away',
+                'fail_count': new_fail_count
+            }
 
 
 if __name__ == '__main__':
+    # Set up logging
+    from lib.logging_config import setup_logging
+    import os
+    log_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'logs', 'presence_monitor.log')
+    setup_logging(log_level='INFO', log_file=log_file)
+
     result = run()

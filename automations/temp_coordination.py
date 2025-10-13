@@ -47,13 +47,21 @@ def run():
         'errors': []
     }
 
-    # Check presence
+    # Check presence from centralized state file
     try:
-        from components.network import is_device_home
+        import os
+        presence_file = os.path.join(os.path.dirname(__file__), '..', '.presence_state')
 
-        is_home = is_device_home('192.168.50.189')
+        if os.path.exists(presence_file):
+            with open(presence_file, 'r') as f:
+                state = f.read().strip().lower()
+                is_home = (state == 'home')
+        else:
+            # Fallback to ping if state file doesn't exist
+            from components.network import is_device_home
+            is_home = is_device_home('192.168.50.189')
+
         results['is_home'] = is_home
-
         logger.info(f"Presence: {'HOME' if is_home else 'AWAY'}")
     except Exception as e:
         logger.error(f"Failed to check presence: {e}")
@@ -120,42 +128,86 @@ def run():
     if night_mode:
         try:
             from components.sensibo import SensiboAPI
+            from components.nest import NestAPI
             from lib.config import config
 
             target_temp = config['automation']['temp_coordination']['night_mode_temp_f']
+
+            # Read Nest mode to ensure we don't fight it
+            nest = NestAPI(dry_run=False)
+            nest_status = nest.get_status()
+            nest_mode = nest_status['mode']
+
+            logger.info(f"Night mode - Nest mode: {nest_mode}")
 
             # Read Sensibo status
             sensibo_read = SensiboAPI(dry_run=False)
             sensibo_status = sensibo_read.get_status()
             sensibo_target = sensibo_status['target_temp_f']
+            sensibo_mode = sensibo_status['mode']
             master_suite_temp = sensibo_status['current_temp_f']
 
             results['sensibo_target'] = sensibo_target
+            results['sensibo_mode'] = sensibo_mode
             results['master_suite_temp'] = master_suite_temp
             results['night_target'] = target_temp
+            results['nest_mode'] = nest_mode
 
-            logger.info(f"Master Suite: {master_suite_temp}°F, Target: {sensibo_target}°F")
+            logger.info(f"Master Suite: {master_suite_temp}°F, Sensibo: {sensibo_mode} {sensibo_target}°F")
             logger.info(f"Night mode target: {target_temp}°F")
 
-            # Only update if target different or Sensibo is off
-            if sensibo_target != target_temp or not sensibo_status['on']:
-                # Determine mode based on current temp
-                mode = 'cool' if master_suite_temp > target_temp else 'heat'
+            # CRITICAL SAFETY: Sensibo mode MUST match Nest mode
+            if nest_mode == 'HEAT':
+                required_mode = 'heat'
+            elif nest_mode == 'COOL':
+                required_mode = 'cool'
+            elif nest_mode == 'HEATCOOL':
+                # Auto mode - choose based on current temp vs target
+                required_mode = 'cool' if master_suite_temp > target_temp else 'heat'
+            elif nest_mode == 'OFF':
+                # Nest is off - turn off Sensibo too
+                if sensibo_status['on']:
+                    if not DRY_RUN:
+                        sensibo_write = SensiboAPI(dry_run=False)
+                        sensibo_write.turn_off()
+                    results['changes_made'].append("Turned OFF Sensibo (Nest is OFF)")
+                    logger.info("✓ Turned OFF Sensibo (Nest is OFF)")
+                else:
+                    results['changes_made'].append("Sensibo already off")
+                    logger.info("→ Sensibo already off")
+                return results
+            else:
+                logger.error(f"Unknown Nest mode: {nest_mode}")
+                results['errors'].append(f"Unknown Nest mode: {nest_mode}")
+                return results
 
+            # Check if we need to update
+            needs_update = False
+            if sensibo_target != target_temp:
+                logger.info(f"Temperature mismatch: Sensibo={sensibo_target}°F, Night target={target_temp}°F")
+                needs_update = True
+            if sensibo_mode != required_mode:
+                logger.error(f"MODE MISMATCH! Sensibo={sensibo_mode}, Nest={nest_mode} (required={required_mode})")
+                needs_update = True
+            if not sensibo_status['on']:
+                logger.info("Sensibo is OFF, turning on")
+                needs_update = True
+
+            if needs_update:
                 if not DRY_RUN:
                     sensibo_write = SensiboAPI(dry_run=False)
-                    sensibo_write.turn_on(mode=mode, temp_f=target_temp)
+                    sensibo_write.turn_on(mode=required_mode, temp_f=target_temp)
 
                     # Send notification
                     from lib.notifications import send_automation_summary
                     send_automation_summary(
                         "🌡️ Night Mode",
-                        [f"Master Suite → {target_temp}°F ({mode})"],
+                        [f"Master Suite → {target_temp}°F ({required_mode})"],
                         priority=0
                     )
 
-                results['changes_made'].append(f"Set Sensibo to {target_temp}°F ({mode} mode)")
-                logger.info(f"✓ Set Sensibo to {target_temp}°F ({mode} mode)")
+                results['changes_made'].append(f"Set Sensibo to {target_temp}°F ({required_mode} mode)")
+                logger.info(f"✓ Set Sensibo to {target_temp}°F ({required_mode} mode)")
             else:
                 results['changes_made'].append("Sensibo already at night target")
                 logger.info("→ Sensibo already at night target (no action needed)")
@@ -166,9 +218,9 @@ def run():
 
         return results
 
-    # Priority 3: Day Mode - Sync Sensibo target to Nest target
+    # Priority 3: Day Mode - Sync Sensibo to Nest
     try:
-        # Read Nest target
+        # Read Nest status
         from components.nest import NestAPI
 
         nest = NestAPI(dry_run=False)  # Always read actual status
@@ -215,8 +267,28 @@ def run():
     try:
         # Handle case where Nest has no setpoint (ECO mode or OFF)
         if nest_target is None:
-            logger.info("Nest has no setpoint (likely in ECO mode) - no sync needed")
-            results['changes_made'].append("Nest in ECO - no coordination")
+            logger.info("Nest has no setpoint (likely in ECO mode) - turning off Sensibo")
+            results['changes_made'].append("Nest in ECO - turning off Sensibo")
+
+            # Turn off Sensibo when Nest is in ECO
+            try:
+                from components.sensibo import SensiboAPI
+
+                sensibo_read = SensiboAPI(dry_run=False)
+                sensibo_status = sensibo_read.get_status()
+
+                if sensibo_status['on']:
+                    if not DRY_RUN:
+                        sensibo_write = SensiboAPI(dry_run=False)
+                        sensibo_write.turn_off()
+
+                    results['changes_made'].append("Turned OFF Sensibo (Nest in ECO)")
+                    logger.info("✓ Turned OFF Sensibo (Nest in ECO)")
+
+            except Exception as e:
+                logger.error(f"Failed to turn off Sensibo: {e}")
+                results['errors'].append(f"Sensibo: {e}")
+
             return results
 
         # Read Sensibo status
@@ -225,32 +297,56 @@ def run():
         sensibo_read = SensiboAPI(dry_run=False)
         sensibo_status = sensibo_read.get_status()
         sensibo_target = sensibo_status['target_temp_f']
+        sensibo_mode = sensibo_status['mode']
         master_suite_temp = sensibo_status['current_temp_f']
 
         results['sensibo_target'] = sensibo_target
+        results['sensibo_mode'] = sensibo_mode
         results['master_suite_temp'] = master_suite_temp
 
-        logger.info(f"Master Suite: {master_suite_temp}°F, Target: {sensibo_target}°F")
+        logger.info(f"Master Suite: {master_suite_temp}°F, Sensibo: {sensibo_mode} {sensibo_target}°F")
 
-        # Sync Sensibo target to Nest target if different
+        # CRITICAL SAFETY: Sensibo mode MUST match Nest mode
+        # Map Nest mode to Sensibo mode
+        if nest_mode == 'HEAT':
+            required_mode = 'heat'
+        elif nest_mode == 'COOL':
+            required_mode = 'cool'
+        elif nest_mode == 'HEATCOOL':
+            # Auto mode - choose based on current temp vs target
+            required_mode = 'cool' if master_suite_temp > nest_target else 'heat'
+        else:
+            logger.error(f"Unknown Nest mode: {nest_mode}")
+            results['errors'].append(f"Unknown Nest mode: {nest_mode}")
+            return results
+
+        # Check if we need to update Sensibo
+        needs_update = False
         if sensibo_target != nest_target:
-            # Determine mode based on current Master Suite temp vs target
-            mode = 'cool' if master_suite_temp > nest_target else 'heat'
+            logger.info(f"Temperature mismatch: Sensibo={sensibo_target}°F, Nest={nest_target}°F")
+            needs_update = True
+        if sensibo_mode != required_mode:
+            logger.error(f"MODE MISMATCH! Sensibo={sensibo_mode}, Nest={nest_mode} (required={required_mode})")
+            needs_update = True
+        if not sensibo_status['on']:
+            logger.info("Sensibo is OFF, turning on")
+            needs_update = True
 
+        if needs_update:
             if not DRY_RUN:
                 sensibo_write = SensiboAPI(dry_run=False)
-                sensibo_write.turn_on(mode=mode, temp_f=nest_target)
+                sensibo_write.turn_on(mode=required_mode, temp_f=nest_target)
 
                 # Send notification
                 from lib.notifications import send_automation_summary
                 send_automation_summary(
                     "🌡️ Temperature Adjusted",
-                    [f"Master Suite set to {nest_target}°F"],
+                    [f"Master Suite → {nest_target}°F ({required_mode} mode)"],
                     priority=0
                 )
 
-            results['changes_made'].append(f"Set Sensibo to {nest_target}°F ({mode} mode)")
-            logger.info(f"✓ Set Sensibo to {nest_target}°F ({mode} mode)")
+            results['changes_made'].append(f"Set Sensibo to {nest_target}°F ({required_mode} mode)")
+            logger.info(f"✓ Set Sensibo to {nest_target}°F ({required_mode} mode)")
         else:
             results['changes_made'].append("Sensibo already synced to Nest")
             logger.info("→ Sensibo already synced to Nest (no action needed)")
