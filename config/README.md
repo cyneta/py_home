@@ -124,3 +124,36 @@ Some settings are managed by state files (not config):
 - `.alert_state/` - Alert cooldown tracking
 
 These are runtime state, not configuration.
+
+## Network Configuration (Raspberry Pi)
+
+### Static IP Address
+The Pi is configured with a static IP to prevent address changes after reboots:
+
+**IP Address:** `192.168.50.189`
+**Hostname:** `raspberrypi.local` (resolves to 192.168.50.189)
+**Gateway:** `192.168.50.1`
+**DNS:** `192.168.50.1`, `8.8.8.8`
+
+**Configuration Method:** NetworkManager (not dhcpcd)
+```bash
+# View current config:
+sudo nmcli connection show preconfigured
+
+# Modify if needed:
+sudo nmcli connection modify preconfigured ipv4.addresses 192.168.50.189/24
+```
+
+### Access Methods
+- **SSH:** `ssh matt.wheeler@raspberrypi.local` or `ssh matt.wheeler@192.168.50.189`
+- **Flask Server:** `http://raspberrypi.local:5000` or `http://192.168.50.189:5000`
+- **Dashboard:** `http://raspberrypi.local:5000/dashboard`
+
+### Why Static IP?
+Static IP prevents:
+- IP address changes after long power outages (DHCP lease expiration)
+- iOS Shortcuts breaking when Pi gets new IP
+- Need to hunt for new IP after reboots
+- Hardcoded IP references becoming stale
+
+**Note:** Always use `sudo shutdown -h now` before unplugging power to prevent SD card corruption.

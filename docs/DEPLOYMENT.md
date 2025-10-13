@@ -563,6 +563,98 @@ ps aux | grep python
 free -h
 ```
 
+### Pi Won't Boot After Power Loss
+
+**Symptoms:**
+- Pi responds to ping but SSH refused
+- Flask server not responding
+- Solid green LED (no blinking during boot)
+
+**Root Cause:** SD card corruption from improper shutdown (unplugging power).
+
+**Recovery Steps:**
+
+1. **Reseat SD Card (Most Common Fix)**
+   ```bash
+   # Power off Pi completely
+   # Remove and firmly reinsert SD card until it clicks
+   # Power back on
+   # Watch for blinking green LED during boot (30-60 seconds)
+   # Solid green after boot = success
+   ```
+
+2. **Enable SSH via Boot Partition (If SSH Refused)**
+   ```bash
+   # Power off Pi, remove SD card
+   # Insert SD card into your laptop
+   # Windows will show "boot" drive (FAT32 partition)
+   # Create empty file named "ssh" (no extension) in root of boot drive
+
+   # In Git Bash or Command Prompt:
+   echo. > E:\ssh  # Replace E: with your drive letter
+
+   # Safely eject SD card
+   # Reinsert into Pi and power on
+   # SSH should now be enabled
+   ```
+
+3. **Physical Console Access (If Above Fails)**
+   ```bash
+   # Connect HDMI monitor + USB keyboard to Pi
+   # Login at console
+   # Username: matt.wheeler (or your Pi username)
+
+   # Enable SSH service
+   sudo systemctl enable ssh
+   sudo systemctl start ssh
+   sudo systemctl status ssh  # Should show "active (running)"
+
+   # Check filesystem status
+   mount | grep " / "  # Should show "rw" not "ro"
+
+   # Check for errors
+   sudo dmesg | grep -i error | tail -20
+
+   # Start Flask manually if needed
+   cd ~/py_home
+   python3 server/__init__.py
+   ```
+
+4. **Set Static IP (Prevent IP Changes After Reboot)**
+   ```bash
+   # Edit network config
+   sudo nano /etc/dhcpcd.conf
+
+   # Add at end (adjust for your network):
+   interface wlan0
+   static ip_address=192.168.50.189/24
+   static routers=192.168.50.1
+   static domain_name_servers=192.168.50.1 8.8.8.8
+
+   # Save: Ctrl+X, Y, Enter
+   # Reboot to apply
+   sudo reboot
+   ```
+
+5. **Test Recovery**
+   ```bash
+   # After reboot, test from your laptop:
+   ping raspberrypi.local  # Should resolve to your static IP
+   ssh matt.wheeler@raspberrypi.local  # Should connect
+   curl http://raspberrypi.local:5000/status  # Should return JSON
+   ```
+
+**Prevention:**
+- **ALWAYS use proper shutdown:** `sudo shutdown -h now`
+- Wait for LED to stop blinking (30-60 seconds) before unplugging
+- Never yank power while Pi is running
+- Consider adding UPS (battery backup) for power protection
+
+**Backup Strategy:**
+- Keep SD card image backup: `sudo dd if=/dev/mmcblk0 of=~/pi_backup.img bs=4M`
+- Or use tool like Win32DiskImager to image SD card from Windows
+- Store backup somewhere safe - fastest recovery is restoring known-good image
+
 ---
 
 ## Backup Strategy
