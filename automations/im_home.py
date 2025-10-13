@@ -33,6 +33,16 @@ def run():
     start_time = time.time()
     kvlog(logger, logging.NOTICE, automation='im_home', event='start', dry_run=DRY_RUN)
 
+    # Check if automations are enabled
+    from lib.automation_control import are_automations_enabled
+    if not are_automations_enabled():
+        kvlog(logger, logging.INFO, automation='im_home', event='skipped', reason='automations_disabled')
+        return {
+            'action': 'im_home',
+            'status': 'skipped',
+            'reason': 'Automations disabled via master switch'
+        }
+
     actions = []
     errors = []
 
