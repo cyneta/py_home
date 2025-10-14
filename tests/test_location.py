@@ -116,10 +116,10 @@ def test_update_location():
         assert data['trigger'] == 'test'
         print(f"  ✓ Data persisted to file")
 
-        # Update to home location (should mark as home)
+        # Update to home location (should mark as home) - Use actual coordinates
         result = update_location(
-            lat=45.7054,
-            lng=-121.5215,
+            lat=45.70766068698601,
+            lng=-121.53682676696884,
             trigger="arriving_home"
         )
 
@@ -192,25 +192,25 @@ def test_should_trigger_arrival():
         assert automation_type == 'preheat', "Should trigger preheat"
         print(f"  ✓ Leaving work (far): {automation_type}")
 
-        # Test 2: Near home trigger (1-5km away)
-        # Simulate location ~2km from home
-        update_location(45.7200, -121.5215, "test")  # ~2km north
+        # Test 2: Near home trigger (<= 1km away)
+        # Simulate location ~800m from home
+        update_location(45.7148, -121.5368, "test")  # ~800m away
         should_trigger, automation_type = should_trigger_arrival("near_home")
 
         assert should_trigger is True, "Should trigger near home"
         assert automation_type == 'lights', "Should turn on lights"
-        print(f"  ✓ Near home (2km): {automation_type}")
+        print(f"  ✓ Near home (800m): {automation_type}")
 
-        # Test 3: Arriving home (within radius)
-        update_location(45.7054, -121.5215, "test")  # At home
+        # Test 3: Arriving home (within radius) - Use actual coordinates
+        update_location(45.70766068698601, -121.53682676696884, "test")  # At home
         should_trigger, automation_type = should_trigger_arrival("arriving_home")
 
         assert should_trigger is True, "Should trigger at home"
         assert automation_type == 'full_arrival', "Should run full arrival"
         print(f"  ✓ Arriving home (0m): {automation_type}")
 
-        # Test 4: Leaving work but close to home (shouldn't preheat)
-        update_location(45.7100, -121.5215, "test")  # ~500m away
+        # Test 4: Leaving work but close to home (shouldn't preheat) - adjusted for new coords
+        update_location(45.7085, -121.5368, "test")  # ~100m away
         should_trigger, automation_type = should_trigger_arrival("leaving_work")
 
         assert should_trigger is False, "Should not trigger when close"

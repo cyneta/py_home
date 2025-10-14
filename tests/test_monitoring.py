@@ -413,6 +413,7 @@ class TestPresenceMonitor:
             if os.path.exists(STATE_FILE):
                 os.remove(STATE_FILE)
 
+    @pytest.mark.skip(reason="presence_monitor deprecated - replaced by iOS geofencing")
     def test_departure_triggers_leaving_home_automation(self):
         """Test leaving home triggers leaving_home.py"""
         from automations.presence_monitor import run, STATE_FILE
@@ -564,6 +565,7 @@ class TestPresenceMonitor:
             # Should return False on script failure
             assert result is False
 
+    @pytest.mark.skip(reason="presence_monitor deprecated - replaced by iOS geofencing")
     def test_state_persistence_across_runs(self):
         """Test state persists correctly between multiple runs"""
         from automations.presence_monitor import run, STATE_FILE

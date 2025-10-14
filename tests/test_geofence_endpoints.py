@@ -73,12 +73,12 @@ def test_update_location_endpoint():
             assert 'error' in data
             print(f"  ✓ Rejects missing coordinates: {response.status_code}")
 
-            # Test 3: Home location (should detect)
+            # Test 3: Home location (should detect) - Use actual home coordinates
             response = client.post(
                 '/update-location',
                 json={
-                    'lat': 45.7054,
-                    'lng': -121.5215,
+                    'lat': 45.70766068698601,
+                    'lng': -121.53682676696884,
                     'trigger': 'arriving_home',
                     'trigger_automations': False
                 },
@@ -136,8 +136,8 @@ def test_get_location_endpoint():
             print(f"  ✓ Retrieved location: {data['lat']}, {data['lng']}")
             print(f"  ✓ Includes ETA: {data['eta'] is not None}")
 
-            # Test 3: At home (shouldn't calculate ETA)
-            update_location(45.7054, -121.5215, 'arriving_home')
+            # Test 3: At home (shouldn't calculate ETA) - Use actual home coordinates
+            update_location(45.70766068698601, -121.53682676696884, 'arriving_home')
 
             response = client.get('/location')
             assert response.status_code == 200
@@ -219,8 +219,8 @@ def test_automation_trigger_conditions():
             response = client.post(
                 '/update-location',
                 json={
-                    'lat': 45.7100,  # Close to home (won't trigger)
-                    'lng': -121.5215,
+                    'lat': 45.7080,  # Close to home (won't trigger) - within 50m
+                    'lng': -121.5368,
                     'trigger': 'leaving_work',
                     'trigger_automations': True
                 },
