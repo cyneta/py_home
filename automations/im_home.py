@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 """
-I'm Home Automation
+I'm Home Automation (Stage 2)
 
-Welcome home routine when arriving.
+Physical arrival routine when WiFi connects (~5 seconds after entering home).
+
+Stage 1 (Pre-Arrival) runs when crossing geofence boundary - see pre_arrival.py
 
 Actions:
-1. Disable Nest ECO mode and set comfort temp (70°F)
-2. Turn on all lamps (welcome lights)
-3. Send welcome notification
+1. Turn on indoor lights (living room + bedroom if evening)
+2. Send welcome notification with action summary
+
+Stage 1 Fallback:
+- If pre-arrival didn't run (WiFi-only arrival), run Stage 1 first
 
 Usage:
     python automations/im_home.py
@@ -28,10 +32,23 @@ logger = logging.getLogger(__name__)
 DRY_RUN = os.environ.get('DRY_RUN', 'false').lower() == 'true' or '--dry-run' in sys.argv
 
 
+def get_presence_state():
+    """Check current presence state from state file"""
+    from pathlib import Path
+    state_file = Path(__file__).parent.parent / '.presence_state'
+
+    try:
+        if state_file.exists():
+            return state_file.read_text().strip()
+        return 'unknown'
+    except Exception:
+        return 'unknown'
+
+
 def run():
-    """Execute I'm home automation"""
+    """Execute I'm home automation (Stage 2)"""
     start_time = time.time()
-    kvlog(logger, logging.NOTICE, automation='im_home', event='start', dry_run=DRY_RUN)
+    kvlog(logger, logging.NOTICE, automation='im_home', event='start', stage=2, dry_run=DRY_RUN)
 
     # Check if automations are enabled
     from lib.automation_control import are_automations_enabled
@@ -46,58 +63,66 @@ def run():
     actions = []
     errors = []
 
-    # 1. Disable Nest ECO mode and set comfort temperature
-    try:
-        from components.nest import NestAPI
-        from lib.config import config
+    # Check if pre-arrival already ran (Stage 1)
+    presence_state = get_presence_state()
+    if presence_state != 'home':
+        # WiFi-only arrival (no geofence trigger)
+        # Run Stage 1 first
+        kvlog(logger, logging.INFO, automation='im_home', event='fallback',
+              reason='pre_arrival_not_run', state=presence_state)
 
-        comfort_temp = config['nest']['comfort_temp']
-        nest = NestAPI(dry_run=DRY_RUN)
+        try:
+            from automations.pre_arrival import run as pre_arrival_run
+            pre_arrival_result = pre_arrival_run()
 
-        api_start = time.time()
-        nest.set_eco_mode(False)
-        nest.set_temperature(comfort_temp)
-        duration_ms = int((time.time() - api_start) * 1000)
+            if pre_arrival_result.get('actions'):
+                actions.extend(pre_arrival_result['actions'])
+            if pre_arrival_result.get('errors'):
+                errors.extend(pre_arrival_result['errors'])
 
-        kvlog(logger, logging.NOTICE, automation='im_home', device='nest',
-              action='set_comfort', target=comfort_temp, result='ok', duration_ms=duration_ms)
+            kvlog(logger, logging.INFO, automation='im_home', event='fallback_complete')
+        except Exception as e:
+            kvlog(logger, logging.ERROR, automation='im_home', event='fallback_failed',
+                  error_type=type(e).__name__, error_msg=str(e))
+            errors.append(f"Pre-arrival fallback: {e}")
 
-        actions.append(f"Nest set to {comfort_temp}°F")
-    except Exception as e:
-        kvlog(logger, logging.ERROR, automation='im_home', device='nest',
-              action='set_comfort', error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Nest: {e}")
-        actions.append(f"Nest failed: {str(e)[:30]}")
-
-    # 2. Turn on all lamps
+    # 1. Turn on indoor lights
     try:
         from components.tapo import TapoAPI
 
         tapo = TapoAPI(dry_run=DRY_RUN)
+        hour = datetime.now().hour
 
         api_start = time.time()
-        # Turn on all outlets except heater
-        lamps = ["Livingroom Lamp", "Bedroom Left Lamp", "Bedroom Right Lamp"]
-        for lamp in lamps:
-            tapo.turn_on(lamp)
+
+        # Always turn on living room (welcome light)
+        tapo.turn_on("Livingroom Lamp")
+        lamps_on = ["Living room"]
+
+        # Turn on bedroom lamps only if evening (after 6pm)
+        if hour >= 18:
+            tapo.turn_on("Bedroom Left Lamp")
+            tapo.turn_on("Bedroom Right Lamp")
+            lamps_on.extend(["Bedroom left", "Bedroom right"])
+
         duration_ms = int((time.time() - api_start) * 1000)
 
         kvlog(logger, logging.NOTICE, automation='im_home', device='tapo',
-              action='turn_on_lamps', count=len(lamps), result='ok', duration_ms=duration_ms)
+              action='indoor_lights', count=len(lamps_on), result='ok', duration_ms=duration_ms)
 
-        actions.append("Welcome lights on")
+        actions.append(f"Indoor lights on ({', '.join(lamps_on)})")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='im_home', device='tapo',
-              action='turn_on_lamps', error_type=type(e).__name__, error_msg=str(e))
+              action='indoor_lights', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Lights: {e}")
         actions.append(f"Lights failed: {str(e)[:30]}")
 
-    # 3. Send notification with action summary
+    # 2. Send notification with action summary
     try:
         if not DRY_RUN:
             from lib.notifications import send_automation_summary
 
-            title = "🏡 Arrived Home"
+            title = "🏡 Welcome Home!"
             priority = 1 if errors else 0  # High priority if errors
 
             send_automation_summary(title, actions, priority=priority)
@@ -112,12 +137,14 @@ def run():
 
     # Complete
     total_duration_ms = int((time.time() - start_time) * 1000)
-    kvlog(logger, logging.NOTICE, automation='im_home', event='complete',
-          duration_ms=total_duration_ms, errors=len(errors))
+    kvlog(logger, logging.NOTICE, automation='im_home', event='complete', stage=2,
+          duration_ms=total_duration_ms, errors=len(errors), actions_count=len(actions))
 
     return {
         'action': 'im_home',
+        'stage': 2,
         'status': 'success' if not errors else 'partial',
+        'actions': actions,
         'errors': errors,
         'duration_ms': total_duration_ms
     }

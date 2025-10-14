@@ -156,8 +156,10 @@ User: "I am seeing what I think are geofence notifications on my phone,
 - State persistence via iCloud
 
 **Actions:**
-- Arrival → POST `/im-home`
+- Arrival → POST `/pre-arrival` (Stage 1: HVAC + outdoor lights)
 - Departure → POST `/leaving-home`
+
+**Note:** WiFi DHCP monitor handles Stage 2 (`/im-home`) when WiFi connects
 
 **State File:** `geofence-state.json` (iCloud Drive)
 
@@ -176,8 +178,10 @@ User: "I am seeing what I think are geofence notifications on my phone,
 |--------------|---------------|-------------|---------|
 | **Good Morning** | "Hey Siri, good morning" | `/good-morning` | Wake up routine |
 | **Goodnight** | "Hey Siri, goodnight" | `/goodnight` | Sleep routine |
-| **I'm Home** | "Hey Siri, I'm home" | `/im-home` | Manual arrival |
+| **I'm Home** | "Hey Siri, I'm home" | `/im-home` | Manual arrival (both stages) |
 | **Leaving Home** | "Hey Siri, I'm leaving" | `/leaving-home` | Manual departure |
+
+**Note:** `/im-home` runs both Stage 1 and Stage 2 when triggered manually or via WiFi. The two-stage system only applies to automatic geofence-based arrival.
 
 #### Shortcut Structure (Example)
 
@@ -404,12 +408,12 @@ locations:
 
 ## Testing
 
-### Test Arrival Flow
+### Test Departure Flow
 
 ```
-1. Walk/drive away from home (>150m)
+1. Walk/drive away from home (>173m from iOS geofence)
    ↓
-2. Wait for automation to run (5-15 minutes)
+2. iOS Shortcuts automation triggers home-geofence.js
    ↓
 3. Check Scriptable console logs
    ↓
@@ -422,19 +426,43 @@ locations:
 7. Check dashboard shows "AWAY"
 ```
 
-### Test Departure Flow
+### Test Two-Stage Arrival Flow
 
+**Stage 1: Pre-Arrival (Geofence Crossing)**
 ```
-1. Return home (<150m)
+1. Return home, cross 173m geofence boundary (~60 sec before home)
    ↓
-2. Wait for automation
+2. iOS automation triggers home-geofence.js
    ↓
-3. Check notification: "🏠 Arrived Home"
+3. Check Scriptable console: "STATE CHANGE: false → true"
    ↓
-4. Verify im_home automation ran
+4. Check Scriptable console: "Calling: .../pre-arrival"
    ↓
-5. Check dashboard shows "HOME"
+5. Check Pi logs: tail -f data/logs/pre_arrival.log
+   ↓
+6. Verify: Nest set to comfort temp (70°F)
+   ↓
+7. Verify: Outdoor lights on (if dark)
+   ↓
+8. NO notification yet (waiting for Stage 2)
 ```
+
+**Stage 2: Physical Arrival (WiFi Connect)**
+```
+9. Continue approaching home, WiFi connects (~5 sec after entry)
+   ↓
+10. WiFi DHCP monitor detects iPhone connection
+   ↓
+11. Check Pi logs: tail -f data/logs/im_home.log
+   ↓
+12. Verify: Indoor lights turn on (living room + bedroom if evening)
+   ↓
+13. Verify notification: "🏡 Welcome Home!" with action summary
+   ↓
+14. Check dashboard shows "HOME"
+```
+
+**Total Time:** ~60-65 seconds from geofence to notification
 
 ### Test Offline Queue
 

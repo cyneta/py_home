@@ -1095,6 +1095,14 @@ def register_routes(app):
         """
         return Response(html, mimetype='text/html')
 
+    @app.route('/pre-arrival', methods=['POST'])
+    @require_auth
+    def pre_arrival():
+        """Trigger pre-arrival automation (Stage 1: HVAC + outdoor lights)"""
+        logger.info("Received /pre-arrival request")
+        result, status_code = run_automation_script('pre_arrival.py')
+        return jsonify(result), status_code
+
     @app.route('/leaving-home', methods=['POST'])
     @require_auth
     def leaving_home():

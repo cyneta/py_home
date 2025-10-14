@@ -116,8 +116,9 @@ py_home is a Python-based home automation system running on Raspberry Pi, contro
 
 **Key Endpoints:**
 ```
+POST /pre-arrival    → triggers pre_arrival.py (Stage 1 - geofence crossing)
+POST /im-home        → triggers im_home.py (Stage 2 - WiFi connect)
 POST /leaving-home   → triggers leaving_home.py
-POST /im-home        → triggers im_home.py
 POST /goodnight      → triggers goodnight.py
 POST /good-morning   → triggers good_morning.py
 GET  /dashboard      → Web UI
@@ -130,14 +131,15 @@ GET  /api/automation-control
 #### Python Automations
 
 **Event-Driven (Webhooks):**
+- `pre_arrival.py` - **Stage 1 arrival**: HVAC prep, outdoor lights (~60 sec before home)
+- `im_home.py` - **Stage 2 arrival**: Indoor lights, welcome notification (WiFi connect)
 - `leaving_home.py` - Secure house, turn off devices
-- `im_home.py` - Welcome home, restore comfort settings
 - `goodnight.py` - Sleep mode, turn off lights
 - `good_morning.py` - Wake up routine
 
 **Scheduled (Cron):**
 - `temp_coordination.py` - Nest + Sensibo coordination (every 15 min)
-- `presence_monitor.py` - Network-based presence (every 5 min)
+- ~~`presence_monitor.py`~~ - **DEPRECATED** (replaced by WiFi DHCP + iOS geofencing)
 
 **See:** `automations/` directory
 
@@ -226,26 +228,69 @@ Total time: ~1-3 seconds
 Runs every 15 minutes
 ```
 
-### Example 3: Arrival Detection (Future - Scriptable)
+### Example 3: Two-Stage Arrival Detection (Scriptable + WiFi DHCP)
 
+**Stage 1: Pre-Arrival (Geofence Crossing)**
 ```
-1. Scriptable geofence script runs (every 5-15 min)
+1. iPhone crosses 173m geofence boundary (~60 sec before home)
    ↓
-2. Check iPhone location
+2. iOS triggers Scriptable automation
    ↓
-3. Calculate distance from home
+3. home-geofence.js executes:
+   - Gets current location
+   - Calculates distance (Haversine formula)
+   - Confirms within 150m
    ↓
-4. If within 150m AND previous state = away:
+4. HTTP POST → /pre-arrival
    ↓
-5. Try HTTP POST → /im-home
+5. Flask spawns: python3 pre_arrival.py
    ↓
-6. If offline: Queue action in iCloud file
+6. pre_arrival.py executes:
+   - Set Nest to comfort temp (70°F) - needs 5-15 min lead time
+   - Enable Sensibo if night mode (66°F) - needs 10-20 min
+   - Turn on outdoor lights if dark (after 6pm)
+   - Update .presence_state = "home"
    ↓
-7. When network available: Process queue
-   ↓
-8. Pi executes im_home.py automation
+7. NO notification sent (waiting for Stage 2)
 
-Total time: ~5-20 seconds (depends on check interval)
+Stage 1 time: ~2-3 seconds
+Lead time before arrival: ~60 seconds
+```
+
+**Stage 2: Physical Arrival (WiFi Connect)**
+```
+1. iPhone connects to home WiFi (~5 sec after entering home)
+   ↓
+2. WiFi DHCP monitor (systemd service) detects DHCP lease
+   ↓
+3. Spawns: python3 im_home.py
+   ↓
+4. im_home.py checks .presence_state:
+   - If "home" → Stage 1 already ran, skip HVAC
+   - If not "home" → Run Stage 1 first (WiFi-only arrival fallback)
+   ↓
+5. im_home.py Stage 2 actions:
+   - Turn on living room lamp (always)
+   - Turn on bedroom lamps if evening (after 6pm)
+   - Send "Welcome Home!" notification with action summary
+   ↓
+6. User receives notification
+
+Stage 2 time: ~2-3 seconds
+Total arrival time: ~60-65 seconds (geofence to notification)
+```
+
+**WiFi-Only Arrival (Fallback if geofence fails):**
+```
+1. WiFi connects without geofence trigger
+   ↓
+2. im_home.py detects .presence_state ≠ "home"
+   ↓
+3. Calls pre_arrival.run() inline (Stage 1 actions)
+   ↓
+4. Continues with Stage 2 actions
+   ↓
+5. Both stages complete in ~3-5 seconds
 ```
 
 ---

@@ -4,11 +4,11 @@
 const config = {
   // Pi server URLs
   piLocal: "http://raspberrypi.local:5000",
-  piVPN: "http://100.64.0.2:5000",  // Update with your Tailscale IP when VPN configured
+  piVPN: "http://100.107.121.6:5000",  // Tailscale IP (or use "raspberrypi" with MagicDNS)
 
   // Home location (must match config/config.yaml)
-  homeLat: 45.7054,
-  homeLng: -121.5215,
+  homeLat: 45.70766068698601,
+  homeLng: -121.53682676696884,
   homeRadius: 150,  // meters
 
   // Auth (if enabled on Pi)
@@ -118,6 +118,10 @@ async function processQueue(state, isHomeNetwork) {
 async function main() {
   console.log("=== Home Geofence Check ===");
 
+  // Get parameter from iOS automation (if provided)
+  const trigger = args.plainTexts[0] || "manual";
+  console.log(`Triggered by: ${trigger}`);
+
   // Get current location
   Location.setAccuracyToThreeKilometers();
   const location = await Location.current();
@@ -138,7 +142,9 @@ async function main() {
     console.log(`STATE CHANGE: ${state.isHome} → ${atHome}`);
 
     // Determine endpoint
-    const endpoint = atHome ? "/im-home" : "/leaving-home";
+    // Arrival: Use pre-arrival (Stage 1 - HVAC + outdoor lights)
+    // Departure: Use leaving-home
+    const endpoint = atHome ? "/pre-arrival" : "/leaving-home";
 
     // Detect network
     const isHomeNetwork = await isOnHomeNetwork();
