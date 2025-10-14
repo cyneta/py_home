@@ -4,6 +4,49 @@ Complete guide for deploying py_home to production.
 
 ---
 
+## Production Server Details
+
+### Raspberry Pi Access
+
+**On-Site (Local Network)**:
+- Hostname: `raspberrypi` or `raspberrypi.local`
+- IP Address: `192.168.50.189`
+- Username: `matt.wheeler`
+- SSH: `ssh matt.wheeler@192.168.50.189`
+- Web UI: `http://192.168.50.189:5000`
+
+**Off-Site (Tailscale VPN)**:
+- Hostname: TBD (check `tailscale status` on Pi)
+- Requires Tailscale connected on client device
+- SSH: `ssh matt.wheeler@<tailscale-hostname>`
+- Web UI: `http://<tailscale-hostname>:5000`
+
+**Service Management**:
+```bash
+# Restart Flask server
+ssh matt.wheeler@192.168.50.189 "sudo systemctl restart py_home"
+
+# Check status
+ssh matt.wheeler@192.168.50.189 "sudo systemctl status py_home"
+
+# View logs
+ssh matt.wheeler@192.168.50.189 "sudo journalctl -u py_home -n 50"
+```
+
+**File Deployment**:
+```bash
+# Deploy updated .env (credentials)
+scp config/.env matt.wheeler@192.168.50.189:/home/matt.wheeler/py_home/config/
+
+# Deploy code changes
+scp -r automations/ matt.wheeler@192.168.50.189:/home/matt.wheeler/py_home/
+
+# After deployment, restart service
+ssh matt.wheeler@192.168.50.189 "sudo systemctl restart py_home"
+```
+
+---
+
 ## Deployment Options
 
 ### Option 1: Raspberry Pi (Recommended)
