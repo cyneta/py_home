@@ -20,7 +20,10 @@
       "Read(//c/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/**)",
       "WebSearch",
       "WebFetch(domain:support.apple.com)",
-      "WebFetch(domain:blog.alexwendland.com)"
+      "WebFetch(domain:blog.alexwendland.com)",
+      "Read(//c/git/cyneta/**)",
+      "Bash(git log:*)",
+      "Bash(bash scripts/deploy_nest_token.sh:*)"
     ],
     "deny": [],
     "ask": []
