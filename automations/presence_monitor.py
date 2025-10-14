@@ -2,9 +2,24 @@
 """
 Presence Monitor Automation
 
-Monitors network for device presence and triggers automations on arrival/departure.
+**STATUS: DEPRECATED as of 2025-10-13**
 
-Backup/complement to iOS location automations.
+This script is no longer used in the primary presence detection stack.
+Replaced by:
+1. WiFi DHCP Monitor (wifi_event_monitor.py) - Instant arrivals
+2. iOS Geofencing (home-geofence.js) - Instant arrivals + departures
+
+See docs/PRESENCE_DETECTION_DECISION.md for rationale.
+
+Kept for:
+- Manual testing
+- Emergency backup
+- Historical reference
+
+---
+
+Original Purpose:
+Monitors network for device presence and triggers automations on arrival/departure.
 
 Designed to run as cron job every 5 minutes:
     */5 * * * * cd /home/pi/py_home && python automations/presence_monitor.py
