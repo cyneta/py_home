@@ -159,6 +159,27 @@ def test_api_tapo_status(client):
         assert 'devices' in data or 'error' in data
 
 
+def test_api_tempstick_status(client):
+    """Test GET /api/tempstick/status returns TempStick sensor data"""
+    with patch('services.tempstick.TempStickAPI') as mock_tempstick_class:
+        mock_instance = Mock()
+        mock_instance.get_sensor_data.return_value = {
+            'sensor_id': 'TS00EMA9JZ',
+            'sensor_name': 'TempStick',
+            'temperature_c': 21.5,
+            'temperature_f': 70.7,
+            'humidity': 50.4,
+            'battery_pct': 100,
+            'is_online': True
+        }
+        mock_tempstick_class.return_value = mock_instance
+
+        response = client.get('/api/tempstick/status')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert 'temperature_f' in data or 'error' in data
+
+
 def test_api_presence(client):
     """Test GET /api/presence returns presence state"""
     import tempfile
@@ -373,6 +394,7 @@ def test_all_endpoints_registered(client):
         '/api/nest/status',
         '/api/sensibo/status',
         '/api/tapo/status',
+        '/api/tempstick/status',
         '/api/presence',
         '/api/automation-control',
         '/api/night-mode'

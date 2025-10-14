@@ -39,9 +39,9 @@
 **Shows:**
 - Nest thermostat status
 - Sensibo AC status
+- TempStick sensor
 - Tapo outlets (4x)
 - Presence state
-- Night mode
 - System status
 - Automation controls
 
@@ -59,6 +59,11 @@
 **Purpose:** Get all Tapo outlets state
 **Used By:** Dashboard (auto-refresh)
 **Returns:** On/off state for all 4 outlets
+
+### 🟢 `GET /api/tempstick/status`
+**Purpose:** Get TempStick sensor data
+**Used By:** Dashboard (auto-refresh)
+**Returns:** Temperature, humidity, battery level, online status
 
 ### 🟢 `GET /api/night-mode`
 **Purpose:** Get night mode status
@@ -237,6 +242,7 @@ Every 5 seconds:
 - `GET /api/nest/status`
 - `GET /api/sensibo/status`
 - `GET /api/tapo/status`
+- `GET /api/tempstick/status`
 - `GET /api/presence`
 - `GET /api/night-mode`
 - `GET /api/system-status`

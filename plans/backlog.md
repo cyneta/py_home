@@ -1,0 +1,3 @@
+- Switch to WSL2 development environment
+- Review test suite
+- Review the names of the Tapo smart outlets

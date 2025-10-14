@@ -168,6 +168,18 @@ def register_routes(app):
             logger.error(f"Failed to get Tapo status: {e}")
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/tempstick/status')
+    def api_tempstick_status():
+        """Get TempStick sensor status (JSON API for dashboard)"""
+        try:
+            from services.tempstick import TempStickAPI
+            tempstick = TempStickAPI()
+            status = tempstick.get_sensor_data()
+            return jsonify(status), 200
+        except Exception as e:
+            logger.error(f"Failed to get TempStick status: {e}")
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/api/night-mode')
     def api_night_mode():
         """Get night mode status (DEPRECATED - use /api/system-status)"""
@@ -221,7 +233,7 @@ def register_routes(app):
             return jsonify({
                 'is_home': state == 'home',
                 'state': state,
-                'source': 'presence_monitor',
+                'source': 'legacy',  # Deprecated: was presence_monitor, now using iOS geofencing
                 'last_updated': last_updated,
                 'age_seconds': round(age_seconds, 1)
             }), 200
@@ -258,22 +270,8 @@ def register_routes(app):
             health_status = 'operational'
             services = {}
 
-            # Check if presence state is stale
-            state_file = os.path.join(os.path.dirname(__file__), '..', '.presence_state')
-            if os.path.exists(state_file):
-                age = time.time() - os.path.getmtime(state_file)
-                if age > 600:  # 10 minutes
-                    health_status = 'degraded'
-                    services['presence_monitor'] = {
-                        'status': 'stale',
-                        'type': 'cron',
-                        'age_seconds': int(age)
-                    }
-                else:
-                    services['presence_monitor'] = {'status': 'active', 'type': 'cron'}
-            else:
-                health_status = 'degraded'
-                services['presence_monitor'] = {'status': 'unknown', 'type': 'cron'}
+            # Note: presence_monitor health check removed (deprecated component)
+            # iOS geofencing via /update-location is now used for presence detection
 
             # Check automation disable flag
             disable_file = os.path.join(os.path.dirname(__file__), '..', '.automation_disabled')
@@ -623,10 +621,11 @@ def register_routes(app):
 
             try {
                 // Load all status data in parallel
-                const [nest, sensibo, tapo, presence, systemStatus] = await Promise.all([
+                const [nest, sensibo, tapo, tempstick, presence, systemStatus] = await Promise.all([
                     fetchNestStatus(),
                     fetchSensiboStatus(),
                     fetchTapoStatus(),
+                    fetchTempStickStatus(),
                     fetchPresence(),
                     fetchSystemStatus()
                 ]);
@@ -636,6 +635,7 @@ def register_routes(app):
                     <div class="grid">
                         ${renderNestCard(nest)}
                         ${renderSensiboCard(sensibo)}
+                        ${renderTempStickCard(tempstick)}
                         ${renderTapoCard(tapo)}
                         ${renderPresenceCard(presence)}
                         ${renderSystemCard(systemStatus)}
@@ -705,7 +705,7 @@ def register_routes(app):
                 mode: 'heat',
                 target_temp_f: 70,
                 current_temp_f: 70.0,
-                humidity: 65.6,
+                current_humidity: 65.6,
                 _stale: false,
                 _error: false
             };
@@ -735,6 +735,36 @@ def register_routes(app):
                     {name: 'Bedroom Right Lamp', on: true},
                     {name: 'Heater', on: false}
                 ],
+                _stale: false,
+                _error: false
+            };
+        }
+
+        async function fetchTempStickStatus() {
+            try {
+                const response = await fetch('/api/tempstick/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    data._stale = false;
+                    data._error = false;
+                    return data;
+                }
+            } catch (e) {
+                return {
+                    _error: true,
+                    error: e.message,
+                    temperature_f: 0,
+                    humidity: 0,
+                    is_online: false
+                };
+            }
+
+            return {
+                temperature_f: 72.0,
+                humidity: 45.0,
+                battery_pct: 100,
+                is_online: true,
+                sensor_name: 'TempStick',
                 _stale: false,
                 _error: false
             };
@@ -867,7 +897,40 @@ def register_routes(app):
                     </div>
                     <div class="status-row">
                         <span class="status-label">Humidity</span>
+                        <span class="status-value">${data.current_humidity || 'N/A'}%</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTempStickCard(data) {
+            const statusBadge = data.is_online ? 'badge-online' : 'badge-offline';
+            const statusText = data.is_online ? 'ONLINE' : 'OFFLINE';
+            const staleWarning = data._stale ? '<div class="status-row"><span class="status-warning">⚠️ Data may be stale</span></div>' : '';
+            const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading data</span></div>' : '';
+
+            // Battery level color
+            let batteryClass = 'status-good';
+            if (data.battery_pct < 20) batteryClass = 'status-error';
+            else if (data.battery_pct < 50) batteryClass = 'status-warning';
+
+            return `
+                <div class="card">
+                    <div class="card-title">🌡️ ${data.sensor_name || 'TempStick'}</div>
+                    ${errorWarning}
+                    ${staleWarning}
+                    <div class="temp-display">${data.temperature_f}°F</div>
+                    <div class="status-row">
+                        <span class="status-label">Humidity</span>
                         <span class="status-value">${data.humidity}%</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Battery</span>
+                        <span class="status-value ${batteryClass}">${data.battery_pct}%</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Status</span>
+                        <span class="badge ${statusBadge}">${statusText}</span>
                     </div>
                 </div>
             `;
@@ -906,6 +969,14 @@ def register_routes(app):
             const staleClass = isStale ? 'status-warning' : '';
             const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading presence</span></div>' : '';
 
+            // Map source to user-friendly name
+            const sourceMap = {
+                'presence_monitor': 'iOS Geofencing',
+                'legacy': 'iOS Geofencing',
+                'unknown': 'Unknown'
+            };
+            const sourceName = sourceMap[data.source] || data.source || 'Unknown';
+
             return `
                 <div class="card">
                     <div class="card-title">📍 Presence</div>
@@ -922,7 +993,7 @@ def register_routes(app):
                     ` : ''}
                     <div class="status-row">
                         <span class="status-label">Source</span>
-                        <span class="status-value">${data.source || 'unknown'}</span>
+                        <span class="status-value">${sourceName}</span>
                     </div>
                 </div>
             `;
