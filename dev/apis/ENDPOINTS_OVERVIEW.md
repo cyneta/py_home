@@ -142,6 +142,7 @@
 - Set Nest to away mode (62°F)
 - Turn off all Tapo outlets
 - Turn off Sensibo AC
+- Update presence state to "away"
 - Send notification
 
 **Frequency:** Each departure from home (instant)

@@ -7,7 +7,7 @@ Migrated from: siri_n8n/n8n/workflows/leaving-home.json
 Actions:
 1. Set Nest thermostat to ECO mode (energy-saving)
 2. Turn off all Tapo outlets (coffee maker, lamps, heater)
-3. (Future: Start Roborock vacuum)
+3. Update presence state to 'away'
 4. Send notification
 
 Usage:
@@ -26,6 +26,21 @@ logger = logging.getLogger(__name__)
 
 # Check for dry-run mode
 DRY_RUN = os.environ.get('DRY_RUN', 'false').lower() == 'true' or '--dry-run' in sys.argv
+
+
+def update_presence_state():
+    """Update presence state to 'away' when leaving home"""
+    from pathlib import Path
+    state_file = Path(__file__).parent.parent / '.presence_state'
+
+    try:
+        with open(state_file, 'w') as f:
+            f.write('away')
+        kvlog(logger, logging.DEBUG, automation='leaving_home', action='update_state',
+              state='away', result='ok')
+    except Exception as e:
+        kvlog(logger, logging.ERROR, automation='leaving_home', action='update_state',
+              error_type=type(e).__name__, error_msg=str(e))
 
 
 def run():
@@ -84,7 +99,11 @@ def run():
         errors.append(f"Tapo: {e}")
         actions.append(f"Outlets failed: {str(e)[:30]}")
 
-    # 3. Send notification with action summary
+    # 3. Update presence state to 'away'
+    if not DRY_RUN:
+        update_presence_state()
+
+    # 4. Send notification with action summary
     try:
         if not DRY_RUN:
             from lib.notifications import send_automation_summary
