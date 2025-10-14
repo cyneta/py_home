@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Home Location - Geofence Center</name>
+    <description>Precise home coordinates for py_home automation system</description>
+
+    <!-- Geofence Center Point -->
+    <Placemark>
+      <name>Home Center</name>
+      <description>
+        Coordinates: 45.70766068698601, -121.53682676696884
+        Geofence Radius: 150 meters
+        Source: iPhone GPS (high accuracy)
+      </description>
+      <Point>
+        <coordinates>-121.53682676696884,45.70766068698601,0</coordinates>
+      </Point>
+    </Placemark>
+
+    <!-- 150m Radius Circle (approximation) -->
+    <Placemark>
+      <name>Geofence Boundary (150m radius)</name>
+      <description>Detection zone for home/away automation</description>
+      <Style>
+        <LineStyle>
+          <color>ff0000ff</color>
+          <width>2</width>
+        </LineStyle>
+        <PolyStyle>
+          <color>330000ff</color>
+        </PolyStyle>
+      </Style>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              -121.53817676696884,45.70766068698601,0
+              -121.53808676696884,45.70779568698601,0
+              -121.53790676696884,45.70792568698601,0
+              -121.53763676696884,45.70804568698601,0
+              -121.53729676696884,45.70814568698601,0
+              -121.53689676696884,45.70822068698601,0
+              -121.53647676696884,45.70826568698601,0
+              -121.53605676696884,45.70827568698601,0
+              -121.53565676696884,45.70825068698601,0
+              -121.53529676696884,45.70819068698601,0
+              -121.53499676696884,45.70809568698601,0
+              -121.53476676696884,45.70797068698601,0
+              -121.53462676696884,45.70782068698601,0
+              -121.53457676696884,45.70765568698601,0
+              -121.53462676696884,45.70748568698601,0
+              -121.53476676696884,45.70732568698601,0
+              -121.53499676696884,45.70718568698601,0
+              -121.53529676696884,45.70707568698601,0
+              -121.53565676696884,45.70699568698601,0
+              -121.53605676696884,45.70695068698601,0
+              -121.53647676696884,45.70694068698601,0
+              -121.53689676696884,45.70696568698601,0
+              -121.53729676696884,45.70702568698601,0
+              -121.53763676696884,45.70712068698601,0
+              -121.53790676696884,45.70724568698601,0
+              -121.53808676696884,45.70739568698601,0
+              -121.53817676696884,45.70754568698601,0
+              -121.53817676696884,45.70766068698601,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>

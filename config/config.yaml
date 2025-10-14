@@ -19,8 +19,8 @@ nest:
 
 locations:
   home:
-    lat: 45.7054
-    lng: -121.5215
+    lat: 45.70766068698601
+    lng: -121.53682676696884
     zip: "97031"
     city: "Hood River"
     state: "OR"
