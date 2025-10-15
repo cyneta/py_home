@@ -52,36 +52,20 @@ def run():
     actions = []
     errors = []
 
-    # 1a. Disable night mode flag (for temp_coordination)
-    try:
-        from lib.night_mode import set_night_mode
-
-        set_night_mode(False)
-        kvlog(logger, logging.NOTICE, automation='good_morning', action='night_mode', enabled=False)
-
-        # Don't add to actions (silent operation)
-    except Exception as e:
-        kvlog(logger, logging.ERROR, automation='good_morning', action='night_mode',
-              error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Night mode: {e}")
-
-    # 1b. Disable Nest ECO mode and set comfort temperature
+    # 1. Set Nest to comfort mode (active 70°F, smart HVAC mode selection)
     try:
         from components.nest import NestAPI
-        from lib.config import config
 
-        comfort_temp = config['nest']['comfort_temp']
         nest = NestAPI(dry_run=DRY_RUN)
 
         api_start = time.time()
-        nest.set_eco_mode(False)
-        nest.set_temperature(comfort_temp)
+        nest.set_comfort_mode()  # Intent-based API - idempotent, config-driven
         duration_ms = int((time.time() - api_start) * 1000)
 
         kvlog(logger, logging.NOTICE, automation='good_morning', device='nest',
-              action='set_comfort', target=comfort_temp, result='ok', duration_ms=duration_ms)
+              action='set_comfort', result='ok', duration_ms=duration_ms)
 
-        actions.append(f"Nest set to {comfort_temp}°F")
+        actions.append("Nest → comfort mode (70°F)")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='good_morning', device='nest',
               action='set_comfort', error_type=type(e).__name__, error_msg=str(e))

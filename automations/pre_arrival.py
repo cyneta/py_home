@@ -84,53 +84,50 @@ def run():
     actions = []
     errors = []
 
-    # 1. Set Nest to comfort temperature
+    # 1. Set Nest to comfort mode (immediate response for arrival)
     try:
         from components.nest import NestAPI
-        from lib.config import config
 
-        comfort_temp = config['nest']['comfort_temp']
         nest = NestAPI(dry_run=DRY_RUN)
 
         api_start = time.time()
-        nest.set_eco_mode(False)
-        nest.set_temperature(comfort_temp)
+        nest.set_comfort_mode()  # Intent-based API - idempotent, config-driven
         duration_ms = int((time.time() - api_start) * 1000)
 
         kvlog(logger, logging.NOTICE, automation='pre_arrival', device='nest',
-              action='set_comfort', target=comfort_temp, result='ok', duration_ms=duration_ms)
+              action='set_comfort', result='ok', duration_ms=duration_ms)
 
-        actions.append(f"Nest set to {comfort_temp}°F")
+        actions.append("Nest → comfort mode (70°F)")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='pre_arrival', device='nest',
               action='set_comfort', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
         actions.append(f"Nest failed: {str(e)[:30]}")
 
-    # 2. Enable Sensibo if night mode active
-    if is_night_mode():
-        try:
-            from components.sensibo import SensiboAPI
-            from lib.config import config
+    # 2. Set Sensibo based on time of day (immediate response for arrival)
+    try:
+        from components.sensibo import SensiboAPI
+        from lib.hvac_logic import is_sleep_time
 
-            night_temp = config['automation']['temp_coordination']['night_mode_temp_f']
-            sensibo = SensiboAPI(dry_run=DRY_RUN)
+        sensibo = SensiboAPI(dry_run=DRY_RUN)
 
-            api_start = time.time()
-            # Match Nest mode but lower temp for bedroom
-            sensibo.turn_on()
-            sensibo.set_temperature(night_temp)
-            duration_ms = int((time.time() - api_start) * 1000)
+        api_start = time.time()
+        if is_sleep_time():
+            sensibo.set_sleep_mode()  # Active 66°F for bedroom during sleep hours
+            actions.append("Bedroom → 66°F (sleep mode)")
+        else:
+            sensibo.set_comfort_mode()  # Active 70°F to help Nest
+            actions.append("Bedroom → 70°F (comfort mode)")
+        duration_ms = int((time.time() - api_start) * 1000)
 
-            kvlog(logger, logging.NOTICE, automation='pre_arrival', device='sensibo',
-                  action='enable_night', target=night_temp, result='ok', duration_ms=duration_ms)
+        kvlog(logger, logging.NOTICE, automation='pre_arrival', device='sensibo',
+              action='set_mode', result='ok', duration_ms=duration_ms)
 
-            actions.append(f"Bedroom AC set to {night_temp}°F")
-        except Exception as e:
-            kvlog(logger, logging.ERROR, automation='pre_arrival', device='sensibo',
-                  action='enable_night', error_type=type(e).__name__, error_msg=str(e))
-            errors.append(f"Sensibo: {e}")
-            actions.append(f"Sensibo failed: {str(e)[:30]}")
+    except Exception as e:
+        kvlog(logger, logging.ERROR, automation='pre_arrival', device='sensibo',
+              action='set_mode', error_type=type(e).__name__, error_msg=str(e))
+        errors.append(f"Sensibo: {e}")
+        actions.append(f"Sensibo failed: {str(e)[:30]}")
 
     # 3. Turn on outdoor lights if dark
     if is_dark():

@@ -66,60 +66,48 @@ def main():
             errors.append(f"Weather: {e}")
             raise
 
-        # Cold weather: Pre-heat with Nest
-        if temp < 50:
-            try:
-                comfort_temp = config['nest']['comfort_temp']
+        # Pre-condition house for arrival (smart mode selection based on weather)
+        try:
+            from components.nest import NestAPI
 
-                api_start = time.time()
-                result = set_temperature(comfort_temp)
-                duration_ms = int((time.time() - api_start) * 1000)
+            nest = NestAPI(dry_run=DRY_RUN)
 
-                kvlog(logger, logging.NOTICE, automation='arrival_preheat', device='nest',
-                      action='set_temp', target=comfort_temp, temp_condition='cold', result='ok', duration_ms=duration_ms)
-            except Exception as e:
-                kvlog(logger, logging.ERROR, automation='arrival_preheat', device='nest',
-                      action='set_temp', error_type=type(e).__name__, error_msg=str(e))
-                errors.append(f"Nest: {e}")
+            api_start = time.time()
+            nest.set_comfort_mode()  # Automatically selects HEAT/COOL/HEATCOOL based on weather
+            duration_ms = int((time.time() - api_start) * 1000)
 
-        # Hot weather: Pre-cool with AC
-        elif temp > 75:
-            try:
-                api_start = time.time()
-                result = set_ac_state(
-                    power='on',
-                    mode='cool',
-                    target_temp=68,
-                    fan_level='auto'
-                )
-                duration_ms = int((time.time() - api_start) * 1000)
+            action_desc = f"Nest → comfort mode (70°F)"
+            kvlog(logger, logging.NOTICE, automation='arrival_preheat', device='nest',
+                  action='set_comfort', outdoor_temp=temp, result='ok', duration_ms=duration_ms)
+        except Exception as e:
+            kvlog(logger, logging.ERROR, automation='arrival_preheat', device='nest',
+                  action='set_comfort', error_type=type(e).__name__, error_msg=str(e))
+            errors.append(f"Nest: {e}")
+            action_desc = f"Nest failed"
 
-                kvlog(logger, logging.NOTICE, automation='arrival_preheat', device='sensibo',
-                      action='turn_on', target=68, temp_condition='hot', result='ok', duration_ms=duration_ms)
-            except Exception as e:
-                kvlog(logger, logging.ERROR, automation='arrival_preheat', device='sensibo',
-                      action='turn_on', error_type=type(e).__name__, error_msg=str(e))
-                errors.append(f"Sensibo: {e}")
+        try:
+            from components.sensibo import SensiboAPI
 
-        # Moderate weather: No action needed
-        else:
-            kvlog(logger, logging.INFO, automation='arrival_preheat', action='preheat',
-                  temp_condition='moderate', result='skipped')
+            sensibo = SensiboAPI(dry_run=DRY_RUN)
+
+            api_start = time.time()
+            sensibo.set_comfort_mode()  # Automatically helps Nest with smart mode selection
+            duration_ms = int((time.time() - api_start) * 1000)
+
+            kvlog(logger, logging.NOTICE, automation='arrival_preheat', device='sensibo',
+                  action='set_comfort', outdoor_temp=temp, result='ok', duration_ms=duration_ms)
+        except Exception as e:
+            kvlog(logger, logging.ERROR, automation='arrival_preheat', device='sensibo',
+                  action='set_comfort', error_type=type(e).__name__, error_msg=str(e))
+            errors.append(f"Sensibo: {e}")
 
         # Send notification
         try:
             if not DRY_RUN:
-                if temp < 50:
-                    action_desc = f"Nest → {config['nest']['comfort_temp']}°F"
-                elif temp > 75:
-                    action_desc = "AC → Cool 68°F"
-                else:
-                    action_desc = "No action (temp OK)"
-
                 if eta_minutes:
-                    message = f"Pre-heating house. ETA: {eta_minutes} min. {action_desc}"
+                    message = f"Pre-conditioning house. ETA: {eta_minutes} min. {action_desc}"
                 else:
-                    message = f"Pre-heating house. {action_desc}"
+                    message = f"Pre-conditioning house. {action_desc}"
 
                 send_notification(
                     title="Arriving Soon",

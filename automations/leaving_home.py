@@ -66,24 +66,24 @@ def run():
     errors = []
     actions = []
 
-    # 1. Set Nest to ECO mode (energy-saving away mode)
+    # 1. Set Nest to away mode (ECO mode with energy-saving bounds)
     try:
         from components.nest import NestAPI
 
         nest = NestAPI(dry_run=DRY_RUN)
 
         api_start = time.time()
-        nest.set_eco_mode(True)
+        nest.set_away_mode()  # Intent-based API - idempotent, config-driven
         duration_ms = int((time.time() - api_start) * 1000)
 
         kvlog(logger, logging.NOTICE, automation='leaving_home', device='nest',
-              action='set_eco_mode', enabled=True, result='ok', duration_ms=duration_ms)
-        actions.append("Nest ECO mode enabled")
+              action='set_away', result='ok', duration_ms=duration_ms)
+        actions.append("Nest away mode (ECO) enabled")
     except Exception as e:
         kvlog(logger, logging.ERROR, automation='leaving_home', device='nest',
-              action='set_eco_mode', error_type=type(e).__name__, error_msg=str(e))
+              action='set_away', error_type=type(e).__name__, error_msg=str(e))
         errors.append(f"Nest: {e}")
-        actions.append(f"Nest ECO failed: {str(e)[:30]}")
+        actions.append(f"Nest away failed: {str(e)[:30]}")
 
     # 2. Turn off all Tapo outlets
     try:
