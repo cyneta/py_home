@@ -156,7 +156,10 @@ class NestAPI:
                 'mode': str ('HEAT', 'COOL', 'HEATCOOL', 'OFF'),
                 'heat_setpoint_f': float (if in HEAT mode),
                 'cool_setpoint_f': float (if in COOL mode),
-                'hvac_status': str ('HEATING', 'COOLING', 'OFF')
+                'hvac_status': str ('HEATING', 'COOLING', 'OFF'),
+                'eco_mode': str ('MANUAL_ECO', 'OFF') - ECO/away mode status,
+                'eco_heat_f': float (ECO heating threshold if in ECO mode),
+                'eco_cool_f': float (ECO cooling threshold if in ECO mode)
             }
         """
         data = self._get(self.device_id)
@@ -184,6 +187,15 @@ class NestAPI:
         # HVAC status
         hvac = traits.get('sdm.devices.traits.ThermostatHvac', {}).get('status', 'OFF')
 
+        # ECO mode status
+        eco_trait = traits.get('sdm.devices.traits.ThermostatEco', {})
+        eco_mode = eco_trait.get('mode', 'OFF')  # 'MANUAL_ECO' or 'OFF'
+        eco_heat_c = eco_trait.get('heatCelsius')
+        eco_cool_c = eco_trait.get('coolCelsius')
+
+        eco_heat_f = self._c_to_f(eco_heat_c) if eco_heat_c else None
+        eco_cool_f = self._c_to_f(eco_cool_c) if eco_cool_c else None
+
         # Validate critical fields before returning
         if temp_f is None:
             raise ValueError(
@@ -202,13 +214,20 @@ class NestAPI:
             'mode': mode,
             'heat_setpoint_f': heat_f,
             'cool_setpoint_f': cool_f,
-            'hvac_status': hvac
+            'hvac_status': hvac,
+            'eco_mode': eco_mode,
+            'eco_heat_f': eco_heat_f,
+            'eco_cool_f': eco_cool_f
         }
 
-        logger.info(
-            f"Nest status: {temp_f}°F, mode={mode}, "
-            f"setpoint={heat_f or cool_f}°F, HVAC={hvac}"
-        )
+        # Log status (include ECO if active)
+        status_msg = f"Nest status: {temp_f}°F, mode={mode}"
+        if eco_mode == 'MANUAL_ECO':
+            status_msg += f", ECO({eco_heat_f}-{eco_cool_f}°F)"
+        else:
+            status_msg += f", setpoint={heat_f or cool_f}°F"
+        status_msg += f", HVAC={hvac}"
+        logger.info(status_msg)
 
         return result
 
@@ -329,6 +348,152 @@ class NestAPI:
 
         logger.info(f"Fan set to run for {duration_seconds} seconds")
 
+    def set_comfort_mode(self, temp_f=None):
+        """
+        Set to comfort mode (active heating/cooling)
+
+        Intent-based, idempotent method that:
+        1. Gets target temp from config if not specified
+        2. Checks current state before making changes
+        3. Uses smart HVAC mode selection (HEAT/COOL/HEATCOOL based on weather)
+        4. Exits ECO mode if currently in away mode
+        5. Only changes state if needed (idempotent)
+
+        Args:
+            temp_f: Target temperature (uses config 'temperatures.comfort' if not specified)
+
+        Example:
+            >>> nest.set_comfort_mode()  # Use config temp (70°F)
+            >>> nest.set_comfort_mode(72)  # Override to 72°F
+        """
+        from lib.config import get
+        from lib.hvac_logic import select_hvac_mode
+
+        # Get target temp from config if not specified
+        if temp_f is None:
+            temp_f = get('temperatures.comfort', 70)
+
+        if self.dry_run:
+            logger.info(f"[DRY-RUN] Would set comfort mode: {temp_f}°F")
+            return
+
+        # Get current status
+        status = self.get_status()
+        current_temp = status['current_temp_f']
+        current_mode = status['mode']
+        eco_mode = status['eco_mode']
+
+        # Check if already at target comfort state
+        is_at_target = False
+        if eco_mode == 'OFF':  # Not in ECO mode
+            current_setpoint = status.get('heat_setpoint_f') or status.get('cool_setpoint_f')
+            if current_setpoint and abs(current_setpoint - temp_f) < 0.5:
+                is_at_target = True
+
+        if is_at_target:
+            kvlog(logger, logging.NOTICE, device='nest', action='set_comfort',
+                  target_temp=temp_f, result='already_at_target')
+            return
+
+        # Determine smart HVAC mode (HEAT/COOL/HEATCOOL)
+        hvac_mode = select_hvac_mode(temp_f, indoor_temp_f=current_temp)
+
+        # Exit ECO mode if needed
+        if eco_mode == 'MANUAL_ECO':
+            kvlog(logger, logging.NOTICE, device='nest', action='exit_eco',
+                  reason='entering_comfort_mode')
+            self.set_eco_mode(False)
+
+        # Set mode if different
+        if current_mode != hvac_mode:
+            kvlog(logger, logging.NOTICE, device='nest', action='set_mode',
+                  from_mode=current_mode, to_mode=hvac_mode, reason='comfort_mode')
+            self.set_mode(hvac_mode)
+
+        # Set temperature
+        kvlog(logger, logging.NOTICE, device='nest', action='set_temp',
+              target_temp=temp_f, hvac_mode=hvac_mode, reason='comfort_mode')
+        self.set_temperature(temp_f, mode=hvac_mode)
+
+        kvlog(logger, logging.NOTICE, device='nest', action='set_comfort',
+              target_temp=temp_f, hvac_mode=hvac_mode, result='ok')
+
+    def set_away_mode(self):
+        """
+        Set to away mode (ECO mode with energy-saving bounds)
+
+        Intent-based, idempotent method that:
+        1. Gets ECO bounds from config (eco_low, eco_high)
+        2. Checks if already in ECO mode (idempotent)
+        3. Enables ECO mode only if needed
+        4. Logs clearly
+
+        ECO mode means:
+        - Heat if temp falls below eco_low (62°F by default)
+        - Cool if temp rises above eco_high (80°F by default)
+        - Between bounds: No HVAC activity (energy saving)
+
+        Example:
+            >>> nest.set_away_mode()  # Use config ECO bounds (62-80°F)
+        """
+        from lib.config import get
+
+        # Get ECO bounds from config
+        eco_low_f = get('temperatures.eco_low', 62)
+        eco_high_f = get('temperatures.eco_high', 80)
+
+        if self.dry_run:
+            logger.info(f"[DRY-RUN] Would set away mode: ECO({eco_low_f}-{eco_high_f}°F)")
+            return
+
+        # Get current status
+        status = self.get_status()
+        eco_mode = status['eco_mode']
+        current_eco_heat = status.get('eco_heat_f')
+        current_eco_cool = status.get('eco_cool_f')
+
+        # Check if already in ECO mode with correct bounds
+        if eco_mode == 'MANUAL_ECO':
+            if (current_eco_heat and abs(current_eco_heat - eco_low_f) < 0.5 and
+                current_eco_cool and abs(current_eco_cool - eco_high_f) < 0.5):
+                kvlog(logger, logging.NOTICE, device='nest', action='set_away',
+                      eco_bounds=f"{eco_low_f}-{eco_high_f}", result='already_in_eco')
+                return
+
+        # Enable ECO mode with bounds
+        kvlog(logger, logging.NOTICE, device='nest', action='set_away',
+              eco_low=eco_low_f, eco_high=eco_high_f, reason='entering_away_mode')
+
+        # Note: Nest API ECO mode automatically sets the bounds
+        # The bounds are configured in the Nest app or via the SDM API
+        # For now, we just enable ECO mode
+        self.set_eco_mode(True)
+
+        kvlog(logger, logging.NOTICE, device='nest', action='set_away',
+              eco_bounds=f"{eco_low_f}-{eco_high_f}", result='ok')
+
+    def set_sleep_mode(self, temp_f=None):
+        """
+        Set to sleep mode
+
+        For Nest, sleep mode = away mode (ECO bounds)
+        This allows Sensibo to independently control bedroom temp while
+        Nest uses energy-saving ECO mode for the rest of the house.
+
+        Args:
+            temp_f: Ignored for Nest (uses ECO bounds), included for API consistency
+
+        Example:
+            >>> nest.set_sleep_mode()  # Enable ECO mode
+        """
+        if self.dry_run:
+            logger.info(f"[DRY-RUN] Would set sleep mode (ECO mode)")
+            return
+
+        kvlog(logger, logging.INFO, device='nest', action='set_sleep',
+              reason='sleep_mode_uses_eco')
+        self.set_away_mode()
+
     # Temperature conversion helpers
     @staticmethod
     def _f_to_c(fahrenheit):
@@ -368,23 +533,50 @@ def set_mode(mode):
     return get_nest().set_mode(mode)
 
 
-def set_away(temp_f=62):
-    """Set to away mode with specific temperature"""
-    nest = get_nest()
-    nest.set_mode('HEAT')  # Ensure not in OFF mode
-    nest.set_temperature(temp_f)
-    logger.info(f"Away mode set to {temp_f}°F")
+def set_away():
+    """
+    Set to away mode (ECO mode with energy-saving bounds)
+
+    Uses ECO bounds from config (eco_low, eco_high).
+    Idempotent - safe to call multiple times.
+
+    Example:
+        >>> set_away()  # Enable ECO mode with config bounds
+    """
+    return get_nest().set_away_mode()
 
 
-def set_comfort(temp_f=72):
-    """Set to comfort temperature"""
-    nest = get_nest()
-    nest.set_mode('HEAT')
-    nest.set_temperature(temp_f)
-    logger.info(f"Comfort mode set to {temp_f}°F")
+def set_comfort(temp_f=None):
+    """
+    Set to comfort mode (active heating/cooling)
+
+    Args:
+        temp_f: Target temperature (uses config 'temperatures.comfort' if not specified)
+
+    Idempotent - safe to call multiple times.
+    Uses smart HVAC mode selection based on weather.
+
+    Example:
+        >>> set_comfort()  # Use config temp (70°F)
+        >>> set_comfort(72)  # Override to 72°F
+    """
+    return get_nest().set_comfort_mode(temp_f)
+
+
+def set_sleep(temp_f=None):
+    """
+    Set to sleep mode (ECO mode for Nest)
+
+    For Nest, sleep mode uses ECO bounds to save energy while
+    Sensibo independently controls bedroom temperature.
+
+    Example:
+        >>> set_sleep()  # Enable ECO mode
+    """
+    return get_nest().set_sleep_mode(temp_f)
 
 
 __all__ = [
     'NestAPI', 'get_nest', 'get_status', 'set_temperature',
-    'set_mode', 'set_away', 'set_comfort'
+    'set_mode', 'set_away', 'set_comfort', 'set_sleep'
 ]
