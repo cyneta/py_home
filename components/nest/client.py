@@ -100,11 +100,14 @@ class NestAPI:
             resp.raise_for_status()
             result = resp.json()
             duration_ms = int((time.time() - api_start) * 1000)
-            kvlog(logger, logging.INFO, api='nest', action='get', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            # Shorten endpoint for logging (remove long device ID)
+            short_endpoint = 'device_status' if '/devices/' in endpoint else endpoint
+            kvlog(logger, logging.DEBUG, api='nest', action='get', endpoint=short_endpoint, result='ok', duration_ms=duration_ms)
             return result
         except Exception as e:
             duration_ms = int((time.time() - api_start) * 1000)
-            kvlog(logger, logging.ERROR, api='nest', action='get', endpoint=endpoint,
+            short_endpoint = 'device_status' if '/devices/' in endpoint else endpoint
+            kvlog(logger, logging.ERROR, api='nest', action='get', endpoint=short_endpoint,
                   error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
             raise
 
@@ -123,11 +126,22 @@ class NestAPI:
             resp.raise_for_status()
             result = resp.json()
             duration_ms = int((time.time() - api_start) * 1000)
-            kvlog(logger, logging.INFO, api='nest', action='post', endpoint=endpoint, result='ok', duration_ms=duration_ms)
+            # Shorten endpoint for logging (extract command name)
+            if ':executeCommand' in endpoint:
+                command = data.get('command', 'unknown').split('.')[-1]
+                short_endpoint = f"cmd:{command}"
+            else:
+                short_endpoint = endpoint
+            kvlog(logger, logging.DEBUG, api='nest', action='post', endpoint=short_endpoint, result='ok', duration_ms=duration_ms)
             return result
         except Exception as e:
             duration_ms = int((time.time() - api_start) * 1000)
-            kvlog(logger, logging.ERROR, api='nest', action='post', endpoint=endpoint,
+            if ':executeCommand' in endpoint:
+                command = data.get('command', 'unknown').split('.')[-1]
+                short_endpoint = f"cmd:{command}"
+            else:
+                short_endpoint = endpoint
+            kvlog(logger, logging.ERROR, api='nest', action='post', endpoint=short_endpoint,
                   error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
             raise
 

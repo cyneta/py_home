@@ -920,7 +920,7 @@ def register_routes(app):
                     </div>
                     <div class="status-row">
                         <span class="status-label">Humidity</span>
-                        <span class="status-value">${data.current_humidity || 'N/A'}%</span>
+                        <span class="status-value">${data.current_humidity != null ? data.current_humidity + '%' : 'N/A'}</span>
                     </div>
                 </div>
             `;
@@ -952,7 +952,7 @@ def register_routes(app):
                     </div>
                     <div class="status-row">
                         <span class="status-label">Humidity</span>
-                        <span class="status-value">${data.current_humidity || 'N/A'}%</span>
+                        <span class="status-value">${data.current_humidity != null ? data.current_humidity + '%' : 'N/A'}</span>
                     </div>
                 </div>
             `;
