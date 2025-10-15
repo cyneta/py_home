@@ -868,7 +868,7 @@ def register_routes(app):
                 if (response.ok) {
                     const text = await response.text();
                     // Reverse lines so newest appears first
-                    const reversedText = text.trim().split('\n').reverse().join('\n');
+                    const reversedText = text.trim().split('\\n').reverse().join('\\n');
                     return {
                         content: reversedText,
                         _error: false
