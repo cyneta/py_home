@@ -24,8 +24,13 @@ from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
-# Check for dry-run mode
-DRY_RUN = os.environ.get('DRY_RUN', 'false').lower() == 'true' or '--dry-run' in sys.argv
+# Check for dry-run mode (priority: flag > env var > config > default)
+from lib.config import get
+DRY_RUN = (
+    '--dry-run' in sys.argv or
+    os.environ.get('DRY_RUN', '').lower() == 'true' or
+    get('automations.dry_run', False)
+)
 
 
 def update_presence_state():

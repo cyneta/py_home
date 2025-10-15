@@ -28,10 +28,12 @@ class CategoryFilter(logging.Filter):
 
     CATEGORY_MAP = {
         '__main__': 'AUTO',
+        'automations.': 'AUTO',  # Automation scripts
         'components.nest': 'NEST',
         'components.tapo': 'TAPO',
         'components.sensibo': 'SENSIBO',
         'services.tempstick': 'TEMP',
+        'services.openweather': 'API',
         'lib.notifications': 'NTFY',
         'server.routes': 'HTTP',
     }
@@ -46,9 +48,13 @@ class CategoryFilter(logging.Filter):
                 category = cat
                 break
 
-        # Check message content for API calls
+        # Check message content for API calls (overrides logger-based category)
         if hasattr(record, 'msg') and 'api=' in str(record.msg):
             category = 'API'
+
+        # Check message content for automation events
+        if hasattr(record, 'msg') and 'automation=' in str(record.msg):
+            category = 'AUTO'
 
         record.category = category
         return True
@@ -105,6 +111,39 @@ def format_duration(duration_ms):
         return f"{duration_ms/1000:.1f}s"
     else:
         return f"{duration_ms}ms"
+
+
+def clean_error_message(error_msg):
+    """
+    Clean up error messages by removing long URLs and IDs.
+
+    Args:
+        error_msg: Raw error message string
+
+    Returns:
+        str: Cleaned error message
+
+    Examples:
+        "400 Client Error: Bad Request for url: https://...very-long-url..."
+        → "400 Bad Request"
+
+        "Connection timeout after 10s"
+        → "Connection timeout after 10s"
+    """
+    msg = str(error_msg)
+
+    # Remove " for url: https://..." patterns
+    if ' for url: ' in msg:
+        msg = msg.split(' for url: ')[0]
+
+    # Simplify "Client Error: " prefix
+    msg = msg.replace('Client Error: ', '')
+
+    # Trim to max 150 chars
+    if len(msg) > 150:
+        msg = msg[:147] + '...'
+
+    return msg
 
 
 def kvlog(logger, level, **kwargs):
