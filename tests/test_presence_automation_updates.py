@@ -95,17 +95,19 @@ def test_pre_arrival_calls_update_presence_state(mock_components):
     """Test that pre_arrival.py calls update_presence_state()"""
     from automations import pre_arrival
 
-    with patch.object(pre_arrival, 'update_presence_state') as mock_update:
-        # Run automation (not in dry-run mode)
-        os.environ['DRY_RUN'] = 'false'
-        try:
-            result = pre_arrival.run()
+    # Patch module-level DRY_RUN variable to handle caching issues
+    with patch.object(pre_arrival, 'DRY_RUN', False):
+        with patch.object(pre_arrival, 'update_presence_state') as mock_update:
+            # Run automation (not in dry-run mode)
+            os.environ['DRY_RUN'] = 'false'
+            try:
+                result = pre_arrival.run()
 
-            # Verify update_presence_state was called
-            mock_update.assert_called_once()
-            assert result['action'] == 'pre_arrival'
-        finally:
-            os.environ.pop('DRY_RUN', None)
+                # Verify update_presence_state was called
+                mock_update.assert_called_once()
+                assert result['action'] == 'pre_arrival'
+            finally:
+                os.environ.pop('DRY_RUN', None)
 
 
 def test_pre_arrival_dry_run_does_not_call_update_presence_state(mock_components):
@@ -129,27 +131,25 @@ def test_pre_arrival_dry_run_does_not_call_update_presence_state(mock_components
 # Leaving Home Tests
 # ====================
 
-@pytest.mark.skip(reason="Test isolation issue - passes individually, fails in full suite. Code is correct.")
 def test_leaving_home_calls_update_presence_state(mock_components):
     """Test that leaving_home.py calls update_presence_state()"""
-    # NOTE: This test passes when run individually but fails in full suite due to
-    # test isolation/ordering issues. The underlying code is correct (verified by
-    # manual testing and test_leaving_home_has_update_presence_state_function).
     from automations import leaving_home
 
     # Mock automations enabled (otherwise function exits early)
     with patch('lib.automation_control.are_automations_enabled', return_value=True):
-        with patch.object(leaving_home, 'update_presence_state') as mock_update:
-            # Run automation (not in dry-run mode)
-            os.environ['DRY_RUN'] = 'false'
-            try:
-                result = leaving_home.run()
+        # Also patch module-level DRY_RUN variable to handle caching issues
+        with patch.object(leaving_home, 'DRY_RUN', False):
+            with patch.object(leaving_home, 'update_presence_state') as mock_update:
+                # Run automation (not in dry-run mode)
+                os.environ['DRY_RUN'] = 'false'
+                try:
+                    result = leaving_home.run()
 
-                # Verify update_presence_state was called
-                mock_update.assert_called_once()
-                assert result['action'] == 'leaving_home'
-            finally:
-                os.environ.pop('DRY_RUN', None)
+                    # Verify update_presence_state was called
+                    mock_update.assert_called_once()
+                    assert result['action'] == 'leaving_home'
+                finally:
+                    os.environ.pop('DRY_RUN', None)
 
 
 def test_leaving_home_dry_run_does_not_call_update_presence_state(mock_components):

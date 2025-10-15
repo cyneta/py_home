@@ -18,6 +18,7 @@ import os
 import sys
 import time
 import threading
+import pytest
 from unittest.mock import patch, MagicMock
 
 # ANSI colors
@@ -26,8 +27,18 @@ RED = '\033[91m'
 YELLOW = '\033[93m'
 RESET = '\033[0m'
 
-# Force dry-run mode for all integration tests
-os.environ['DRY_RUN'] = 'true'
+
+@pytest.fixture(autouse=True)
+def force_dry_run():
+    """Force dry-run mode for all integration tests"""
+    old_value = os.environ.get('DRY_RUN')
+    os.environ['DRY_RUN'] = 'true'
+    yield
+    # Restore original value
+    if old_value is None:
+        os.environ.pop('DRY_RUN', None)
+    else:
+        os.environ['DRY_RUN'] = old_value
 
 
 def test_leaving_home_workflow():
