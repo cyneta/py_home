@@ -1,8 +1,16 @@
 """
 Centralized logging configuration for py_home.
 
-Provides Unix-standard structured logging with syslog-compatible levels
-and key=value format for easy parsing with grep/awk/journalctl.
+Provides concise, readable logging with category tags and clean formatting.
+Format: HH:MM:SS.mmm LEVEL [CATEGORY] message
+
+Categories:
+- AUTO: Automation events
+- NEST/TAPO/SENSIBO/TEMP: Device-specific
+- API: API calls
+- HTTP: Web requests
+- NTFY: Notifications
+- SYS: System events
 """
 
 import logging
@@ -13,6 +21,37 @@ import sys
 # Used for normal operational events worth recording
 logging.NOTICE = 25
 logging.addLevelName(25, 'NOTICE')
+
+
+class CategoryFilter(logging.Filter):
+    """Add category to log records based on logger name"""
+
+    CATEGORY_MAP = {
+        '__main__': 'AUTO',
+        'components.nest': 'NEST',
+        'components.tapo': 'TAPO',
+        'components.sensibo': 'SENSIBO',
+        'services.tempstick': 'TEMP',
+        'lib.notifications': 'NTFY',
+        'server.routes': 'HTTP',
+    }
+
+    def filter(self, record):
+        # Determine category from logger name
+        logger_name = record.name
+        category = 'SYS'  # Default
+
+        for prefix, cat in self.CATEGORY_MAP.items():
+            if logger_name.startswith(prefix):
+                category = cat
+                break
+
+        # Check message content for API calls
+        if hasattr(record, 'msg') and 'api=' in str(record.msg):
+            category = 'API'
+
+        record.category = category
+        return True
 
 
 def _format_value(v):
@@ -45,6 +84,27 @@ def _format_value(v):
         return f'"{s}"'
 
     return s
+
+
+def format_duration(duration_ms):
+    """
+    Format duration in human-readable form.
+
+    Args:
+        duration_ms: Duration in milliseconds
+
+    Returns:
+        str: Formatted duration (e.g., "2.9s" or "319ms")
+
+    Examples:
+        format_duration(2919) → "2.9s"
+        format_duration(319) → "319ms"
+        format_duration(12543) → "12.5s"
+    """
+    if duration_ms >= 1000:
+        return f"{duration_ms/1000:.1f}s"
+    else:
+        return f"{duration_ms}ms"
 
 
 def kvlog(logger, level, **kwargs):
@@ -89,9 +149,12 @@ def setup_logging(log_level=None, log_file=None):
     # Convert string to logging constant
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
 
-    # Syslog-compatible format: timestamp name[pid] level message
-    # Note: %(asctime)s automatically includes milliseconds (YYYY-MM-DD HH:MM:SS,mmm)
-    log_format = '%(asctime)s %(name)s[%(process)d] %(levelname)s %(message)s'
+    # New concise format: HH:MM:SS.mmm LEVEL [CATEGORY] message
+    # %(asctime)s.%(msecs)03d → time with milliseconds
+    # %(levelname)-6s → level name, left-aligned, 6 chars wide
+    # [%(category)-6s] → category tag in brackets, 6 chars wide
+    log_format = '%(asctime)s.%(msecs)03d %(levelname)-6s [%(category)-6s] %(message)s'
+    date_format = '%H:%M:%S'  # Time only, no date
 
     # Configure handlers
     if log_file:
@@ -99,8 +162,11 @@ def setup_logging(log_level=None, log_file=None):
     else:
         handler = logging.StreamHandler(sys.stdout)
 
-    # Use default date format which includes milliseconds
-    handler.setFormatter(logging.Formatter(log_format))
+    # Set formatter with time-only format
+    handler.setFormatter(logging.Formatter(log_format, datefmt=date_format))
+
+    # Add category filter
+    handler.addFilter(CategoryFilter())
 
     # Configure root logger
     root_logger = logging.getLogger()
