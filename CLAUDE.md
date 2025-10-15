@@ -1,0 +1,1 @@
+- remember IP for raspberry pi when away from home (elaborate this before saving)

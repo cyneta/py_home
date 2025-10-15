@@ -44,6 +44,12 @@ class NestAPI:
         self.access_token = None
         self.token_expiry = None
 
+        # Get timeout values from config
+        timeouts = config.get('device_timeouts', {})
+        self.timeout_connect = timeouts.get('connect', 5)
+        self.timeout_status = timeouts.get('status', 5)
+        self.timeout_control = timeouts.get('control', 10)
+
         # Ensure we have valid credentials
         if not all([self.project_id, self.device_id, self.client_id,
                     self.client_secret, self.refresh_token]):
@@ -68,7 +74,7 @@ class NestAPI:
                 'client_secret': self.client_secret,
                 'refresh_token': self.refresh_token,
                 'grant_type': 'refresh_token'
-            })
+            }, timeout=self.timeout_connect)
 
             resp.raise_for_status()
             data = resp.json()
@@ -95,7 +101,7 @@ class NestAPI:
             url = f"{self.BASE_URL}/{endpoint}"
             resp = requests.get(url, headers={
                 "Authorization": f"Bearer {self.access_token}"
-            })
+            }, timeout=self.timeout_status)
 
             resp.raise_for_status()
             result = resp.json()
@@ -120,7 +126,8 @@ class NestAPI:
             url = f"{self.BASE_URL}/{endpoint}"
             resp = requests.post(url,
                 headers={"Authorization": f"Bearer {self.access_token}"},
-                json=data
+                json=data,
+                timeout=self.timeout_control
             )
 
             resp.raise_for_status()
@@ -428,12 +435,12 @@ class NestAPI:
         3. Logs clearly
 
         ECO mode means:
-        - Heat if temp falls below eco_low threshold
-        - Cool if temp rises above eco_high threshold
+        - Heat if temp falls below eco_heat_f threshold
+        - Cool if temp rises above eco_cool_f threshold
         - Between bounds: No HVAC activity (energy saving)
 
-        Note: ECO bounds are set in the Nest app and cannot be changed via API.
-        Config values (eco_low, eco_high) are for documentation only.
+        Note: ECO bounds must be configured in the Google Home app.
+        The API can only read the bounds (eco_heat_f, eco_cool_f), not set them.
 
         Example:
             >>> nest.set_away_mode()  # Enable ECO mode
@@ -523,11 +530,11 @@ def set_away():
     """
     Set to away mode (ECO mode with energy-saving bounds)
 
-    Uses ECO bounds from config (eco_low, eco_high).
+    Uses ECO bounds configured in Google Home app.
     Idempotent - safe to call multiple times.
 
     Example:
-        >>> set_away()  # Enable ECO mode with config bounds
+        >>> set_away()  # Enable ECO mode
     """
     return get_nest().set_away_mode()
 

@@ -19,15 +19,21 @@ server:
 automations:
   dry_run: false          # Global dry-run mode for testing (can override with --dry-run flag)
 
+# Device API Timeouts (seconds)
+device_timeouts:
+  connect: 5              # Initial connection/auth
+  status: 5               # Status queries
+  control: 10             # Control operations (turn on/off, set temp, etc.)
+
 # Temperature Policy (centralized control for all HVAC)
 temperatures:
   comfort: 70             # Active living temperature (whole house + bedroom during day)
   bedroom_sleep: 66       # Bedroom at night (active target)
 
-  # ECO mode bounds (for sleep & away - Nest manages temp within this range)
-  eco_low: 62             # ECO heating minimum (heat if below this)
-  eco_high: 80            # ECO cooling maximum (cool if above this)
-  # Between 62-80°F: No HVAC activity (energy saving)
+  # ECO mode bounds - MUST be configured in Google Home app (cannot be set via API)
+  # ECO mode is used for away/sleep: Nest heats if temp < eco_heat, cools if temp > eco_cool
+  # Between bounds: No HVAC activity (energy saving)
+  # Current bounds can be viewed on dashboard when in ECO mode
 
   # Smart mode selection thresholds
   heat_below: 65          # Use HEAT when outdoor temp < 65°F

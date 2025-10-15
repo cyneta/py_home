@@ -17,6 +17,7 @@ import time
 from kasa import Device, DeviceConfig, Credentials, DeviceConnectionParameters
 from kasa import DeviceEncryptionType, DeviceFamily
 from lib.logging_config import kvlog
+from lib.async_helpers import AsyncRunner
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,12 @@ class TapoAPI:
         self.password = config['tapo']['password']
         self.outlets = config['tapo']['outlets']
         self.dry_run = dry_run
+        self._async = AsyncRunner()  # Composition: use helper for async operations
+
+        # Get timeout values from config
+        timeouts = config.get('device_timeouts', {})
+        self.timeout_status = timeouts.get('status', 5)
+        self.timeout_control = timeouts.get('control', 10)
 
         if not self.username or not self.password:
             raise ValueError(
@@ -60,15 +67,9 @@ class TapoAPI:
         device = await Device.connect(config=config)
         return device
 
-    def _run_async(self, coro):
-        """Helper to run async function in sync context"""
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        return loop.run_until_complete(coro)
+    def _run_async(self, coro, timeout=None):
+        """Helper to run async function in sync context with optional timeout"""
+        return self._async.run(coro, timeout=timeout)
 
     def get_outlet_by_name(self, name):
         """Find outlet config by name"""
@@ -77,13 +78,14 @@ class TapoAPI:
                 return outlet
         raise ValueError(f"Outlet not found: {name}")
 
-    def turn_on(self, outlet_name=None, ip=None):
+    def turn_on(self, outlet_name=None, ip=None, timeout=None):
         """
         Turn on outlet
 
         Args:
             outlet_name: Name from config (e.g., "Kitchen plug")
             ip: IP address (alternative to name)
+            timeout: Timeout in seconds (uses config value if not specified)
 
         Example:
             >>> tapo.turn_on("Livingroom Lamp")
@@ -96,6 +98,9 @@ class TapoAPI:
         if not ip:
             raise ValueError("Must specify outlet_name or ip")
 
+        if timeout is None:
+            timeout = self.timeout_control
+
         if self.dry_run:
             logger.info(f"[DRY-RUN] Would turn ON Tapo outlet: {outlet_name or ip}")
             return
@@ -107,22 +112,28 @@ class TapoAPI:
                 await device.turn_on()
                 await device.protocol.close()
 
-            self._run_async(_turn_on())
+            self._run_async(_turn_on(), timeout=timeout)
             duration_ms = int((time.time() - api_start) * 1000)
             kvlog(logger, logging.INFO, api='tapo', action='turn_on', outlet=outlet_name or ip, result='ok', duration_ms=duration_ms)
+        except asyncio.TimeoutError:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='tapo', action='turn_on', outlet=outlet_name or ip,
+                  error_type='TimeoutError', error_msg=f'Timeout after {timeout}s', duration_ms=duration_ms)
+            raise TimeoutError(f"Tapo turn_on timed out after {timeout}s")
         except Exception as e:
             duration_ms = int((time.time() - api_start) * 1000)
             kvlog(logger, logging.ERROR, api='tapo', action='turn_on', outlet=outlet_name or ip,
                   error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
             raise
 
-    def turn_off(self, outlet_name=None, ip=None):
+    def turn_off(self, outlet_name=None, ip=None, timeout=None):
         """
         Turn off outlet
 
         Args:
             outlet_name: Name from config
             ip: IP address (alternative)
+            timeout: Timeout in seconds (uses config value if not specified)
 
         Example:
             >>> tapo.turn_off("Kitchen plug")
@@ -133,6 +144,9 @@ class TapoAPI:
 
         if not ip:
             raise ValueError("Must specify outlet_name or ip")
+
+        if timeout is None:
+            timeout = self.timeout_control
 
         if self.dry_run:
             logger.info(f"[DRY-RUN] Would turn OFF Tapo outlet: {outlet_name or ip}")
@@ -145,9 +159,14 @@ class TapoAPI:
                 await device.turn_off()
                 await device.protocol.close()
 
-            self._run_async(_turn_off())
+            self._run_async(_turn_off(), timeout=timeout)
             duration_ms = int((time.time() - api_start) * 1000)
             kvlog(logger, logging.INFO, api='tapo', action='turn_off', outlet=outlet_name or ip, result='ok', duration_ms=duration_ms)
+        except asyncio.TimeoutError:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='tapo', action='turn_off', outlet=outlet_name or ip,
+                  error_type='TimeoutError', error_msg=f'Timeout after {timeout}s', duration_ms=duration_ms)
+            raise TimeoutError(f"Tapo turn_off timed out after {timeout}s")
         except Exception as e:
             duration_ms = int((time.time() - api_start) * 1000)
             kvlog(logger, logging.ERROR, api='tapo', action='turn_off', outlet=outlet_name or ip,
@@ -172,13 +191,14 @@ class TapoAPI:
             except Exception as e:
                 logger.error(f"Failed to turn off {outlet['name']}: {e}")
 
-    def get_status(self, outlet_name=None, ip=None):
+    def get_status(self, outlet_name=None, ip=None, timeout=None):
         """
         Get outlet status
 
         Args:
             outlet_name: Name from config
             ip: IP address (alternative)
+            timeout: Timeout in seconds (uses config value if not specified)
 
         Returns:
             dict: {
@@ -193,6 +213,9 @@ class TapoAPI:
 
         if not ip:
             raise ValueError("Must specify outlet_name or ip")
+
+        if timeout is None:
+            timeout = self.timeout_status
 
         api_start = time.time()
         try:
@@ -228,20 +251,28 @@ class TapoAPI:
                 await device.protocol.close()
                 return result
 
-            status = self._run_async(_get_status())
+            status = self._run_async(_get_status(), timeout=timeout)
             duration_ms = int((time.time() - api_start) * 1000)
             kvlog(logger, logging.INFO, api='tapo', action='get_status', outlet=outlet_name or ip,
                   state='on' if status['on'] else 'off', result='ok', duration_ms=duration_ms)
             return status
+        except asyncio.TimeoutError:
+            duration_ms = int((time.time() - api_start) * 1000)
+            kvlog(logger, logging.ERROR, api='tapo', action='get_status', outlet=outlet_name or ip,
+                  error_type='TimeoutError', error_msg=f'Timeout after {timeout}s', duration_ms=duration_ms)
+            raise TimeoutError(f"Tapo get_status timed out after {timeout}s")
         except Exception as e:
             duration_ms = int((time.time() - api_start) * 1000)
             kvlog(logger, logging.ERROR, api='tapo', action='get_status', outlet=outlet_name or ip,
                   error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
             raise
 
-    def get_all_status(self):
+    def get_all_status(self, timeout=None):
         """
-        Get status of all configured outlets
+        Get status of all configured outlets (queries in parallel)
+
+        Args:
+            timeout: Timeout per outlet in seconds (uses config value if not specified)
 
         Returns:
             list: List of dicts with outlet status:
@@ -254,21 +285,93 @@ class TapoAPI:
                     },
                     ...
                 ]
+
+        Note: Queries all outlets in parallel for fast response.
+              Continues on individual device timeout, returning partial results.
         """
-        results = []
-        for outlet in self.outlets:
+        if timeout is None:
+            timeout = self.timeout_status
+
+        async def get_outlet_status(outlet):
+            """Get status for a single outlet with error handling"""
             try:
-                status = self.get_status(ip=outlet['ip'])
-                status['name'] = outlet['name']
-                results.append(status)
+                api_start = time.time()
+                device = await self._get_device(outlet['ip'])
+
+                result = {
+                    'on': device.is_on,
+                    'device_info': {
+                        'model': device.model,
+                        'alias': device.alias,
+                        'hardware_version': device.hw_info.get('hw_ver', 'unknown'),
+                        'firmware_version': device.hw_info.get('sw_ver', 'unknown'),
+                        'mac': device.mac,
+                        'rssi': device.rssi
+                    }
+                }
+
+                # Try to get energy usage
+                try:
+                    if hasattr(device, 'emeter_realtime'):
+                        emeter = await device.emeter_realtime
+                        result['energy'] = {
+                            'current_power_w': emeter.get('power', 0),
+                            'total_wh': emeter.get('total', 0)
+                        }
+                    else:
+                        result['energy'] = None
+                except Exception:
+                    result['energy'] = None
+
+                await device.protocol.close()
+
+                result['name'] = outlet['name']
+                duration_ms = int((time.time() - api_start) * 1000)
+                kvlog(logger, logging.INFO, api='tapo', action='get_status', outlet=outlet['name'],
+                      state='on' if result['on'] else 'off', result='ok', duration_ms=duration_ms)
+                return result
+
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout getting status for {outlet['name']}")
+                return {
+                    'name': outlet['name'],
+                    'error': 'timeout',
+                    'on': False
+                }
             except Exception as e:
                 logger.error(f"Failed to get status for {outlet['name']}: {e}")
-                results.append({
+                return {
                     'name': outlet['name'],
                     'error': str(e),
                     'on': False
+                }
+
+        async def query_all():
+            """Query all outlets in parallel"""
+            tasks = [
+                asyncio.wait_for(get_outlet_status(outlet), timeout=timeout)
+                for outlet in self.outlets
+            ]
+            return await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Run all queries in parallel
+        results = self._run_async(query_all())
+
+        # Convert any exception results to error dicts
+        final_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                outlet_name = self.outlets[i]['name']
+                logger.error(f"Exception getting status for {outlet_name}: {result}")
+                final_results.append({
+                    'name': outlet_name,
+                    'error': str(result),
+                    'on': False
                 })
-        return results
+            else:
+                final_results.append(result)
+
+        return final_results
 
     def list_all_status(self):
         """Deprecated: Use get_all_status() instead"""

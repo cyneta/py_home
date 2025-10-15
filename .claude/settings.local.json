@@ -23,7 +23,8 @@
       "WebFetch(domain:blog.alexwendland.com)",
       "Read(//c/git/cyneta/**)",
       "Bash(git log:*)",
-      "Bash(bash scripts/deploy_nest_token.sh:*)"
+      "Bash(bash scripts/deploy_nest_token.sh:*)",
+      "Bash(pytest:*)"
     ],
     "deny": [],
     "ask": []

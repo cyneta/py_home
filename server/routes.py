@@ -644,6 +644,21 @@ def register_routes(app):
     </div>
 
     <script>
+        // Fetch with timeout helper
+        async function fetchWithTimeout(url, timeout = 5000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
+        }
+
         async function loadDashboard() {
             const dashboardEl = document.getElementById('dashboard');
             const lastUpdatedEl = document.getElementById('lastUpdated');
@@ -683,7 +698,7 @@ def register_routes(app):
 
         async function fetchNestStatus() {
             try {
-                const response = await fetch('/api/nest/status');
+                const response = await fetchWithTimeout('/api/nest/status', 10000);
                 if (response.ok) {
                     const data = await response.json();
                     data._stale = false;
@@ -714,7 +729,7 @@ def register_routes(app):
 
         async function fetchSensiboStatus() {
             try {
-                const response = await fetch('/api/sensibo/status');
+                const response = await fetchWithTimeout('/api/sensibo/status', 10000);
                 if (response.ok) {
                     const data = await response.json();
                     data._stale = false;
@@ -744,7 +759,7 @@ def register_routes(app):
 
         async function fetchTapoStatus() {
             try {
-                const response = await fetch('/api/tapo/status');
+                const response = await fetchWithTimeout('/api/tapo/status', 30000);
                 if (response.ok) {
                     const data = await response.json();
                     data._stale = false;
@@ -773,7 +788,7 @@ def register_routes(app):
 
         async function fetchTempStickStatus() {
             try {
-                const response = await fetch('/api/tempstick/status');
+                const response = await fetchWithTimeout('/api/tempstick/status', 10000);
                 if (response.ok) {
                     const data = await response.json();
                     data._stale = false;
@@ -803,7 +818,7 @@ def register_routes(app):
 
         async function fetchPresence() {
             try {
-                const response = await fetch('/api/presence');
+                const response = await fetchWithTimeout('/api/presence', 5000);
                 if (response.ok) {
                     const data = await response.json();
 
@@ -836,7 +851,7 @@ def register_routes(app):
 
         async function fetchSystemStatus() {
             try {
-                const response = await fetch('/api/system-status');
+                const response = await fetchWithTimeout('/api/system-status', 5000);
                 if (response.ok) {
                     const data = await response.json();
                     data._stale = false;
@@ -866,7 +881,7 @@ def register_routes(app):
 
         async function fetchAutomationLogs() {
             try {
-                const response = await fetch('/logs/automations.log?lines=20&format=text');
+                const response = await fetchWithTimeout('/logs/automations.log?lines=20&format=text', 5000);
                 if (response.ok) {
                     const text = await response.text();
                     // Reverse lines so newest appears first
@@ -902,6 +917,19 @@ def register_routes(app):
             const staleWarning = data._stale ? '<div class="status-row"><span class="status-warning">⚠️ Data may be stale</span></div>' : '';
             const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading data</span></div>' : '';
 
+            // Determine target temperature display
+            let targetTemp = '';
+            if (data.eco_mode === 'MANUAL_ECO' && data.eco_heat_f && data.eco_cool_f) {
+                // In ECO mode: show range
+                targetTemp = `ECO (${data.eco_heat_f}-${data.eco_cool_f}°F)`;
+            } else if (data.heat_setpoint_f) {
+                targetTemp = `${data.heat_setpoint_f}°F`;
+            } else if (data.cool_setpoint_f) {
+                targetTemp = `${data.cool_setpoint_f}°F`;
+            } else {
+                targetTemp = 'N/A';
+            }
+
             return `
                 <div class="card">
                     <div class="card-title">🌡️ Nest Thermostat</div>
@@ -914,7 +942,7 @@ def register_routes(app):
                     </div>
                     <div class="status-row">
                         <span class="status-label">Target</span>
-                        <span class="status-value">${data.heat_setpoint_f || data.cool_setpoint_f || 'ECO'}°F</span>
+                        <span class="status-value">${targetTemp}</span>
                     </div>
                     <div class="status-row">
                         <span class="status-label">HVAC</span>
@@ -1718,6 +1746,21 @@ def register_routes(app):
                 <button class="btn" onclick="refresh()">🔄 Refresh</button>
                 <button class="btn" onclick="toggleAutoRefresh()">⏱️ Auto-refresh: OFF</button>
             </div>
+            <div class="log-controls" style="margin-top: 10px;">
+                <select class="btn" id="logLevelFilter" onchange="applyFilters()" style="min-width: 120px;">
+                    <option value="">All Levels</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="NOTICE">NOTICE</option>
+                    <option value="INFO">INFO</option>
+                    <option value="DEBUG">DEBUG</option>
+                </select>
+                <input type="text" class="btn" id="automationFilter" placeholder="Filter by automation..."
+                       style="flex: 1; min-width: 150px;" oninput="applyFilters()">
+                <input type="text" class="btn" id="keywordFilter" placeholder="Search keyword..."
+                       style="flex: 1; min-width: 150px;" oninput="applyFilters()">
+                <button class="btn" onclick="clearFilters()">✕ Clear</button>
+            </div>
             <pre id="logContent">Select a log file to view</pre>
         </div>
     </div>
@@ -1726,6 +1769,7 @@ def register_routes(app):
         let currentLog = null;
         let currentLines = 50;
         let autoRefreshInterval = null;
+        let rawLogContent = '';
 
         async function loadLogList() {
             try {
@@ -1766,6 +1810,8 @@ def register_routes(app):
                 card.classList.toggle('active', card.textContent.includes(filename));
             });
 
+            // Clear previous content and force reload
+            rawLogContent = '';
             await loadLogContent();
         }
 
@@ -1773,14 +1819,19 @@ def register_routes(app):
             if (!currentLog) return;
 
             const contentEl = document.getElementById('logContent');
-            contentEl.textContent = 'Loading...';
 
             try {
                 const response = await fetch(
                     `/logs/${currentLog}?lines=${currentLines}&format=text`
                 );
                 const text = await response.text();
-                contentEl.textContent = text || '(empty log)';
+                const newContent = text || '(empty log)';
+
+                // Only update if content has changed
+                if (newContent !== rawLogContent) {
+                    rawLogContent = newContent;
+                    applyFilters();
+                }
             } catch (error) {
                 contentEl.textContent = `Error loading log: ${error.message}`;
             }
@@ -1811,6 +1862,44 @@ def register_routes(app):
                 btn.textContent = '⏱️ Auto-refresh: ON';
                 btn.classList.add('active');
             }
+        }
+
+        function applyFilters() {
+            const contentEl = document.getElementById('logContent');
+            const logLevelFilter = document.getElementById('logLevelFilter').value;
+            const automationFilter = document.getElementById('automationFilter').value.toLowerCase();
+            const keywordFilter = document.getElementById('keywordFilter').value.toLowerCase();
+
+            // Split into lines
+            let lines = rawLogContent.split('\\n');
+
+            // Apply log level filter
+            if (logLevelFilter) {
+                const levelRegex = new RegExp(`level=${logLevelFilter}\\b`, 'i');
+                lines = lines.filter(line => levelRegex.test(line));
+            }
+
+            // Apply automation filter
+            if (automationFilter) {
+                const autoRegex = new RegExp(`automation=[^\\s]*${automationFilter}`, 'i');
+                lines = lines.filter(line => autoRegex.test(line));
+            }
+
+            // Apply keyword filter
+            if (keywordFilter) {
+                lines = lines.filter(line => line.toLowerCase().includes(keywordFilter));
+            }
+
+            // Update display
+            const filteredContent = lines.join('\\n');
+            contentEl.textContent = filteredContent || '(no matching logs)';
+        }
+
+        function clearFilters() {
+            document.getElementById('logLevelFilter').value = '';
+            document.getElementById('automationFilter').value = '';
+            document.getElementById('keywordFilter').value = '';
+            applyFilters();
         }
 
         // Load logs on page load

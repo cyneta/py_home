@@ -33,6 +33,11 @@ class SensiboAPI:
         self.device_id = device_id or config['sensibo'].get('bedroom_ac_id')
         self.dry_run = dry_run
 
+        # Get timeout values from config
+        timeouts = config.get('device_timeouts', {})
+        self.timeout_status = timeouts.get('status', 5)
+        self.timeout_control = timeouts.get('control', 10)
+
         if not self.api_key:
             raise ValueError(
                 "Sensibo API key not configured. "
@@ -48,7 +53,7 @@ class SensiboAPI:
         api_start = time.time()
         try:
             url = f"{self.BASE_URL}/{endpoint}"
-            resp = requests.get(url, params=params)
+            resp = requests.get(url, params=params, timeout=self.timeout_status)
             resp.raise_for_status()
 
             data = resp.json()
@@ -72,7 +77,7 @@ class SensiboAPI:
             url = f"{self.BASE_URL}/{endpoint}"
             params = {'apiKey': self.api_key}
 
-            resp = requests.patch(url, params=params, json=data)
+            resp = requests.patch(url, params=params, json=data, timeout=self.timeout_control)
             resp.raise_for_status()
 
             result = resp.json()
@@ -96,7 +101,7 @@ class SensiboAPI:
             url = f"{self.BASE_URL}/{endpoint}"
             params = {'apiKey': self.api_key}
 
-            resp = requests.post(url, params=params, json=data)
+            resp = requests.post(url, params=params, json=data, timeout=self.timeout_control)
             resp.raise_for_status()
 
             result = resp.json()
