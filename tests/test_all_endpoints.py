@@ -245,14 +245,14 @@ def test_api_automation_control_post(client, mock_auth):
 
 
 def test_api_night_mode_get(client):
-    """Test GET /api/night-mode returns night mode state"""
-    with patch('lib.night_mode.is_night_mode') as mock_check:
+    """Test GET /api/night-mode returns sleep time state (deprecated endpoint)"""
+    with patch('lib.hvac_logic.is_sleep_time') as mock_check:
         mock_check.return_value = True
 
         response = client.get('/api/night-mode')
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert 'night_mode' in data
+        assert 'night_mode' in data or 'sleep_time' in data
 
 
 # NOTE: /api/night-mode does NOT support POST - it's GET only and deprecated

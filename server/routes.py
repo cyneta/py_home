@@ -182,9 +182,9 @@ def register_routes(app):
 
     @app.route('/api/night-mode')
     def api_night_mode():
-        """Get night mode status (DEPRECATED - use /api/system-status)"""
+        """Get sleep time status (DEPRECATED - use /api/system-status)"""
         try:
-            from lib.night_mode import is_night_mode
+            from lib.hvac_logic import is_sleep_time
             from server import FLASK_START_TIME
 
             # Calculate Flask uptime (not Pi uptime)
@@ -197,12 +197,14 @@ def register_routes(app):
             else:
                 uptime = f"{hours}h"
 
+            # Return sleep_time status (replaces old night_mode flag)
             return jsonify({
-                'night_mode': is_night_mode(),
+                'night_mode': is_sleep_time(),  # Keep key name for backward compatibility
+                'sleep_time': is_sleep_time(),  # New name for clarity
                 'uptime': uptime
             }), 200
         except Exception as e:
-            logger.error(f"Failed to get night mode status: {e}")
+            logger.error(f"Failed to get sleep time status: {e}")
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/presence')
@@ -262,9 +264,9 @@ def register_routes(app):
             else:
                 uptime = f"{minutes}m"
 
-            # Get night mode
-            from lib.night_mode import is_night_mode
-            night_mode = is_night_mode()
+            # Get sleep time status (replaces old night_mode flag system)
+            from lib.hvac_logic import is_sleep_time
+            night_mode = is_sleep_time()  # Variable name kept for backward compatibility
 
             # Check system health
             health_status = 'operational'
