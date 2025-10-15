@@ -867,8 +867,10 @@ def register_routes(app):
                 const response = await fetch('/logs/automations.log?lines=20&format=text');
                 if (response.ok) {
                     const text = await response.text();
+                    // Reverse lines so newest appears first
+                    const reversedText = text.trim().split('\n').reverse().join('\n');
                     return {
-                        content: text,
+                        content: reversedText,
                         _error: false
                     };
                 }
