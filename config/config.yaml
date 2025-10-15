@@ -2,6 +2,23 @@
 # Non-sensitive settings (committed to git)
 # Sensitive credentials go in .env
 
+# Logging Configuration
+logging:
+  level: INFO              # DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
+  file: null               # null = stdout (for systemd), or path to log file
+
+# Flask Server Settings
+server:
+  host: 0.0.0.0           # Listen on all interfaces
+  port: 5000
+  debug: false
+  require_auth: false
+  log_level: INFO         # Flask-specific logging level
+
+# Automation Settings
+automations:
+  dry_run: false          # Global dry-run mode for testing (can override with --dry-run flag)
+
 # Tesla integration deferred - see docs/TESLA_STATUS.md
 # tesla:
 #   email: "user@example.com"

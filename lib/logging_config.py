@@ -139,12 +139,27 @@ def setup_logging(log_level=None, log_file=None):
 
     Args:
         log_level: Log level string (DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL)
-                   Defaults to LOG_LEVEL env var, then INFO
+                   Priority: 1) parameter, 2) LOG_LEVEL env var, 3) config.yaml, 4) INFO
         log_file: Path to log file (None = stdout, recommended for systemd)
+                  Priority: 1) parameter, 2) config.yaml, 3) None (stdout)
     """
-    # Determine log level
+    # Determine log level (parameter > env var > config > default)
     if log_level is None:
-        log_level = os.getenv('LOG_LEVEL', 'INFO')
+        log_level = os.getenv('LOG_LEVEL')
+        if log_level is None:
+            try:
+                from lib.config import get
+                log_level = get('logging.level', 'INFO')
+            except Exception:
+                log_level = 'INFO'
+
+    # Determine log file (parameter > config > default)
+    if log_file is None:
+        try:
+            from lib.config import get
+            log_file = get('logging.file')
+        except Exception:
+            log_file = None
 
     # Convert string to logging constant
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
