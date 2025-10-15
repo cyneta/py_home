@@ -298,6 +298,196 @@ class SensiboAPI:
         self.set_ac_state(device_id=device_id, target_temp_f=temp_f)
         logger.info(f"Sensibo temperature set to {temp_f}°F")
 
+    def set_comfort_mode(self, temp_f=None, device_id=None):
+        """
+        Set to comfort mode (active heating/cooling)
+
+        Intent-based, idempotent method that:
+        1. Gets target temp from config if not specified
+        2. Checks current state before making changes
+        3. Uses smart HVAC mode selection (heat/cool/auto based on weather)
+        4. Turns on AC if off
+        5. Only changes state if needed (idempotent)
+
+        Args:
+            temp_f: Target temperature (uses config 'temperatures.comfort' if not specified)
+            device_id: Device ID (optional)
+
+        Example:
+            >>> sensibo.set_comfort_mode()  # Use config temp (70°F)
+            >>> sensibo.set_comfort_mode(72)  # Override to 72°F
+        """
+        from lib.config import get
+        from lib.hvac_logic import select_hvac_mode
+
+        device_id = device_id or self.device_id
+
+        # Get target temp from config if not specified
+        if temp_f is None:
+            temp_f = get('temperatures.comfort', 70)
+
+        if self.dry_run:
+            logger.info(f"[DRY-RUN] Would set Sensibo comfort mode: {temp_f}°F")
+            return
+
+        # Get current status
+        status = self.get_status(device_id)
+        is_on = status['on']
+        current_mode = status['mode']
+        current_temp_f = status['current_temp_f']
+        current_target_f = status['target_temp_f']
+
+        # Check if already at target comfort state
+        is_at_target = (
+            is_on and
+            current_target_f and abs(current_target_f - temp_f) < 0.5 and
+            current_mode in ['cool', 'heat', 'auto']
+        )
+
+        if is_at_target:
+            kvlog(logger, logging.NOTICE, device='sensibo', action='set_comfort',
+                  target_temp=temp_f, result='already_at_target')
+            return
+
+        # Determine smart HVAC mode (HEAT/COOL/HEATCOOL → heat/cool/auto for Sensibo)
+        hvac_mode = select_hvac_mode(temp_f, indoor_temp_f=current_temp_f)
+
+        # Map Nest modes to Sensibo modes
+        mode_map = {
+            'HEAT': 'heat',
+            'COOL': 'cool',
+            'HEATCOOL': 'auto'
+        }
+        sensibo_mode = mode_map.get(hvac_mode, 'auto')
+
+        # Build state update
+        new_state = {
+            'on': True,
+            'mode': sensibo_mode,
+            'target_temp_f': temp_f
+        }
+
+        kvlog(logger, logging.NOTICE, device='sensibo', action='set_comfort',
+              target_temp=temp_f, mode=sensibo_mode, was_on=is_on)
+
+        self.set_ac_state(device_id=device_id, **new_state)
+
+        kvlog(logger, logging.NOTICE, device='sensibo', action='set_comfort',
+              target_temp=temp_f, mode=sensibo_mode, result='ok')
+
+    def set_away_mode(self, device_id=None):
+        """
+        Set to away mode (turn off AC for energy saving)
+
+        Intent-based, idempotent method that:
+        1. Checks if already off (idempotent)
+        2. Turns off AC only if needed
+        3. Logs clearly
+
+        Args:
+            device_id: Device ID (optional)
+
+        Example:
+            >>> sensibo.set_away_mode()  # Turn off AC
+        """
+        device_id = device_id or self.device_id
+
+        if self.dry_run:
+            logger.info(f"[DRY-RUN] Would set Sensibo away mode (turn off)")
+            return
+
+        # Get current status
+        status = self.get_status(device_id)
+        is_on = status['on']
+
+        # Check if already off
+        if not is_on:
+            kvlog(logger, logging.NOTICE, device='sensibo', action='set_away',
+                  result='already_off')
+            return
+
+        # Turn off AC
+        kvlog(logger, logging.NOTICE, device='sensibo', action='set_away',
+              reason='energy_saving')
+
+        self.turn_off(device_id=device_id)
+
+        kvlog(logger, logging.NOTICE, device='sensibo', action='set_away',
+              result='ok')
+
+    def set_sleep_mode(self, temp_f=None, device_id=None):
+        """
+        Set to sleep mode (active bedroom temperature control)
+
+        Intent-based, idempotent method for bedroom nighttime comfort.
+        Unlike Nest (which uses ECO), Sensibo actively maintains bedroom temp.
+
+        Args:
+            temp_f: Target temperature (uses config 'temperatures.bedroom_sleep' if not specified)
+            device_id: Device ID (optional)
+
+        Example:
+            >>> sensibo.set_sleep_mode()  # Use config bedroom_sleep temp (66°F)
+            >>> sensibo.set_sleep_mode(68)  # Override to 68°F
+        """
+        from lib.config import get
+        from lib.hvac_logic import select_hvac_mode
+
+        device_id = device_id or self.device_id
+
+        # Get target temp from config if not specified
+        if temp_f is None:
+            temp_f = get('temperatures.bedroom_sleep', 66)
+
+        if self.dry_run:
+            logger.info(f"[DRY-RUN] Would set Sensibo sleep mode: {temp_f}°F")
+            return
+
+        # Get current status
+        status = self.get_status(device_id)
+        is_on = status['on']
+        current_mode = status['mode']
+        current_temp_f = status['current_temp_f']
+        current_target_f = status['target_temp_f']
+
+        # Check if already at target sleep state
+        is_at_target = (
+            is_on and
+            current_target_f and abs(current_target_f - temp_f) < 0.5 and
+            current_mode in ['cool', 'heat', 'auto']
+        )
+
+        if is_at_target:
+            kvlog(logger, logging.NOTICE, device='sensibo', action='set_sleep',
+                  target_temp=temp_f, result='already_at_target')
+            return
+
+        # Determine smart HVAC mode
+        hvac_mode = select_hvac_mode(temp_f, indoor_temp_f=current_temp_f)
+
+        # Map Nest modes to Sensibo modes
+        mode_map = {
+            'HEAT': 'heat',
+            'COOL': 'cool',
+            'HEATCOOL': 'auto'
+        }
+        sensibo_mode = mode_map.get(hvac_mode, 'auto')
+
+        # Build state update
+        new_state = {
+            'on': True,
+            'mode': sensibo_mode,
+            'target_temp_f': temp_f
+        }
+
+        kvlog(logger, logging.NOTICE, device='sensibo', action='set_sleep',
+              target_temp=temp_f, mode=sensibo_mode, was_on=is_on)
+
+        self.set_ac_state(device_id=device_id, **new_state)
+
+        kvlog(logger, logging.NOTICE, device='sensibo', action='set_sleep',
+              target_temp=temp_f, mode=sensibo_mode, result='ok')
+
     # Temperature conversion helpers
     @staticmethod
     def _f_to_c(fahrenheit):
@@ -342,7 +532,56 @@ def set_temperature(temp_f, device_id=None):
     return get_sensibo().set_temperature(temp_f, device_id)
 
 
+def set_comfort(temp_f=None, device_id=None):
+    """
+    Set to comfort mode (active heating/cooling)
+
+    Args:
+        temp_f: Target temperature (uses config 'temperatures.comfort' if not specified)
+        device_id: Device ID (optional)
+
+    Idempotent - safe to call multiple times.
+    Uses smart HVAC mode selection based on weather.
+
+    Example:
+        >>> set_comfort()  # Use config temp (70°F)
+        >>> set_comfort(72)  # Override to 72°F
+    """
+    return get_sensibo().set_comfort_mode(temp_f, device_id)
+
+
+def set_away(device_id=None):
+    """
+    Set to away mode (turn off AC for energy saving)
+
+    Idempotent - safe to call multiple times.
+
+    Example:
+        >>> set_away()  # Turn off AC
+    """
+    return get_sensibo().set_away_mode(device_id)
+
+
+def set_sleep(temp_f=None, device_id=None):
+    """
+    Set to sleep mode (active bedroom temperature control)
+
+    Args:
+        temp_f: Target temperature (uses config 'temperatures.bedroom_sleep' if not specified)
+        device_id: Device ID (optional)
+
+    Idempotent - safe to call multiple times.
+    Unlike Nest (ECO), Sensibo actively maintains bedroom temp.
+
+    Example:
+        >>> set_sleep()  # Use config bedroom_sleep temp (66°F)
+        >>> set_sleep(68)  # Override to 68°F
+    """
+    return get_sensibo().set_sleep_mode(temp_f, device_id)
+
+
 __all__ = [
     'SensiboAPI', 'get_sensibo', 'get_status',
-    'turn_on', 'turn_off', 'set_temperature'
+    'turn_on', 'turn_off', 'set_temperature',
+    'set_comfort', 'set_away', 'set_sleep'
 ]
