@@ -11,7 +11,8 @@ from .client import (
     turn_off,
     turn_on_all,
     turn_off_all,
-    get_status
+    get_status,
+    get_all_status
 )
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     'turn_off',
     'turn_on_all',
     'turn_off_all',
-    'get_status'
+    'get_status',
+    'get_all_status'
 ]

@@ -519,16 +519,6 @@ def get_status():
     return get_nest().get_status()
 
 
-def set_temperature(temp_f, mode=None):
-    """Set target temperature"""
-    return get_nest().set_temperature(temp_f, mode)
-
-
-def set_mode(mode):
-    """Set thermostat mode"""
-    return get_nest().set_mode(mode)
-
-
 def set_away():
     """
     Set to away mode (ECO mode with energy-saving bounds)
@@ -573,6 +563,6 @@ def set_sleep(temp_f=None):
 
 
 __all__ = [
-    'NestAPI', 'get_nest', 'get_status', 'set_temperature',
-    'set_mode', 'set_away', 'set_comfort', 'set_sleep'
+    'NestAPI', 'get_nest', 'get_status',
+    'set_away', 'set_comfort', 'set_sleep'
 ]

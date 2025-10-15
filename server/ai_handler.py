@@ -295,8 +295,8 @@ def execute_action(parsed_command: Dict[str, Any], dry_run: bool = False) -> Dic
 
                 if action == "nest.set_temperature":
                     temp_f = params.get("temp_f")
-                    mode = params.get("mode")
-                    nest.set_temperature(temp_f, mode=mode)
+                    # Use new intent-based API (ignores mode param)
+                    nest.set_comfort_mode(temp_f)
                     result["message"] = f"Set Nest to {temp_f}°F"
 
                 elif action == "nest.increase_temperature":
@@ -304,7 +304,8 @@ def execute_action(parsed_command: Dict[str, Any], dry_run: bool = False) -> Dic
                     current_status = get_status()
                     current_temp = current_status.get('heat_setpoint_f') or current_status.get('cool_setpoint_f') or 70
                     new_temp = current_temp + delta
-                    nest.set_temperature(new_temp)
+                    # Use new intent-based API
+                    nest.set_comfort_mode(new_temp)
                     result["message"] = f"Increased temperature by {delta}°F to {new_temp}°F"
 
                 elif action == "nest.decrease_temperature":
@@ -312,7 +313,8 @@ def execute_action(parsed_command: Dict[str, Any], dry_run: bool = False) -> Dic
                     current_status = get_status()
                     current_temp = current_status.get('heat_setpoint_f') or current_status.get('cool_setpoint_f') or 70
                     new_temp = current_temp - delta
-                    nest.set_temperature(new_temp)
+                    # Use new intent-based API
+                    nest.set_comfort_mode(new_temp)
                     result["message"] = f"Decreased temperature by {delta}°F to {new_temp}°F"
 
                 elif action == "nest.set_mode":
@@ -332,7 +334,7 @@ def execute_action(parsed_command: Dict[str, Any], dry_run: bool = False) -> Dic
                 if action == "sensibo.turn_on":
                     mode = params.get("mode", "cool")
                     temp_f = params.get("temp_f", 72)
-                    sensibo.turn_on(mode=mode, target_temp_f=temp_f)
+                    sensibo.turn_on(mode=mode, temp_f=temp_f)
                     result["message"] = f"Turned on AC: {mode} mode at {temp_f}°F"
 
                 elif action == "sensibo.turn_off":
@@ -341,7 +343,8 @@ def execute_action(parsed_command: Dict[str, Any], dry_run: bool = False) -> Dic
 
                 elif action == "sensibo.set_temperature":
                     temp_f = params.get("temp_f")
-                    sensibo.set_temperature(temp_f)
+                    # Use new intent-based API
+                    sensibo.set_comfort_mode(temp_f)
                     result["message"] = f"Set AC to {temp_f}°F"
 
                 else:

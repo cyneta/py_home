@@ -527,11 +527,6 @@ def turn_off(device_id=None):
     return get_sensibo().turn_off(device_id)
 
 
-def set_temperature(temp_f, device_id=None):
-    """Set target temperature"""
-    return get_sensibo().set_temperature(temp_f, device_id)
-
-
 def set_comfort(temp_f=None, device_id=None):
     """
     Set to comfort mode (active heating/cooling)
@@ -582,6 +577,6 @@ def set_sleep(temp_f=None, device_id=None):
 
 __all__ = [
     'SensiboAPI', 'get_sensibo', 'get_status',
-    'turn_on', 'turn_off', 'set_temperature',
+    'turn_on', 'turn_off',
     'set_comfort', 'set_away', 'set_sleep'
 ]

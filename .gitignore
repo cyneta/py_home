@@ -30,5 +30,8 @@ Thumbs.db
 
 # Runtime state
 .alert_state/
+.presence_state
+.night_mode
+.automation_disabled
 data/location.json
 

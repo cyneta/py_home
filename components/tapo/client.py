@@ -239,8 +239,22 @@ class TapoAPI:
                   error_type=type(e).__name__, error_msg=str(e), duration_ms=duration_ms)
             raise
 
-    def list_all_status(self):
-        """Get status of all configured outlets"""
+    def get_all_status(self):
+        """
+        Get status of all configured outlets
+
+        Returns:
+            list: List of dicts with outlet status:
+                [
+                    {
+                        'name': 'Livingroom Lamp',
+                        'on': True,
+                        'device_info': {...},
+                        'energy': {...}
+                    },
+                    ...
+                ]
+        """
         results = []
         for outlet in self.outlets:
             try:
@@ -251,9 +265,14 @@ class TapoAPI:
                 logger.error(f"Failed to get status for {outlet['name']}: {e}")
                 results.append({
                     'name': outlet['name'],
-                    'error': str(e)
+                    'error': str(e),
+                    'on': False
                 })
         return results
+
+    def list_all_status(self):
+        """Deprecated: Use get_all_status() instead"""
+        return self.get_all_status()
 
 
 # Singleton instance
@@ -293,7 +312,12 @@ def get_status(outlet_name):
     return get_tapo().get_status(outlet_name)
 
 
+def get_all_status():
+    """Get status of all outlets"""
+    return get_tapo().get_all_status()
+
+
 __all__ = [
     'TapoAPI', 'get_tapo', 'turn_on', 'turn_off',
-    'turn_on_all', 'turn_off_all', 'get_status'
+    'turn_on_all', 'turn_off_all', 'get_status', 'get_all_status'
 ]

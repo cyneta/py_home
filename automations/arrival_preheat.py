@@ -14,8 +14,6 @@ import time
 # Add project root to path
 sys.path.insert(0, '/c/git/cyneta/py_home')
 
-from components.nest import set_temperature, get_status
-from components.sensibo import set_ac_state, get_ac_status
 from services.openweather import get_current_weather
 from lib.config import config
 from lib.notifications import send_notification
