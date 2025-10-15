@@ -1,6 +1,1 @@
-- Switch to WSL2 development environment
-- Review test suite
-- Review the names of the Tapo smart outlets
-- Make a mobile-friendly dashboard
-- Add tests to ensure that presence is being updated by all relevant events
-- No ntfy notifications received - investigate
+<!-- Tasks moved to active todo list 2025-10-14 -->

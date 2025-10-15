@@ -140,4 +140,9 @@ def run():
 
 
 if __name__ == '__main__':
+    # Set up logging to unified automations.log
+    from lib.logging_config import setup_logging
+    log_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'logs', 'automations.log')
+    setup_logging(log_level='INFO', log_file=log_file)
+
     run()

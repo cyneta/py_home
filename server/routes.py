@@ -925,12 +925,12 @@ def register_routes(app):
                         <span class="status-value">${data.humidity}%</span>
                     </div>
                     <div class="status-row">
-                        <span class="status-label">Battery</span>
-                        <span class="status-value ${batteryClass}">${data.battery_pct}%</span>
-                    </div>
-                    <div class="status-row">
                         <span class="status-label">Status</span>
                         <span class="badge ${statusBadge}">${statusText}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Battery</span>
+                        <span class="status-value ${batteryClass}">${data.battery_pct}%</span>
                     </div>
                 </div>
             `;
