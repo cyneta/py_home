@@ -90,6 +90,7 @@ def setup_logging(log_level=None, log_file=None):
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
 
     # Syslog-compatible format: timestamp name[pid] level message
+    # Note: %(asctime)s automatically includes milliseconds (YYYY-MM-DD HH:MM:SS,mmm)
     log_format = '%(asctime)s %(name)s[%(process)d] %(levelname)s %(message)s'
 
     # Configure handlers
@@ -98,6 +99,7 @@ def setup_logging(log_level=None, log_file=None):
     else:
         handler = logging.StreamHandler(sys.stdout)
 
+    # Use default date format which includes milliseconds
     handler.setFormatter(logging.Formatter(log_format))
 
     # Configure root logger
