@@ -423,27 +423,23 @@ class NestAPI:
         Set to away mode (ECO mode with energy-saving bounds)
 
         Intent-based, idempotent method that:
-        1. Gets ECO bounds from config (eco_low, eco_high)
-        2. Checks if already in ECO mode (idempotent)
-        3. Enables ECO mode only if needed
-        4. Logs clearly
+        1. Checks if already in ECO mode (idempotent)
+        2. Enables ECO mode only if needed
+        3. Logs clearly
 
         ECO mode means:
-        - Heat if temp falls below eco_low (62°F by default)
-        - Cool if temp rises above eco_high (80°F by default)
+        - Heat if temp falls below eco_low threshold
+        - Cool if temp rises above eco_high threshold
         - Between bounds: No HVAC activity (energy saving)
 
+        Note: ECO bounds are set in the Nest app and cannot be changed via API.
+        Config values (eco_low, eco_high) are for documentation only.
+
         Example:
-            >>> nest.set_away_mode()  # Use config ECO bounds (62-80°F)
+            >>> nest.set_away_mode()  # Enable ECO mode
         """
-        from lib.config import get
-
-        # Get ECO bounds from config
-        eco_low_f = get('temperatures.eco_low', 62)
-        eco_high_f = get('temperatures.eco_high', 80)
-
         if self.dry_run:
-            logger.info(f"[DRY-RUN] Would set away mode: ECO({eco_low_f}-{eco_high_f}°F)")
+            logger.info(f"[DRY-RUN] Would set away mode: ECO mode")
             return
 
         # Get current status
@@ -452,25 +448,25 @@ class NestAPI:
         current_eco_heat = status.get('eco_heat_f')
         current_eco_cool = status.get('eco_cool_f')
 
-        # Check if already in ECO mode with correct bounds
+        # Check if already in ECO mode (idempotent)
         if eco_mode == 'MANUAL_ECO':
-            if (current_eco_heat and abs(current_eco_heat - eco_low_f) < 0.5 and
-                current_eco_cool and abs(current_eco_cool - eco_high_f) < 0.5):
-                kvlog(logger, logging.NOTICE, device='nest', action='set_away',
-                      eco_bounds=f"{eco_low_f}-{eco_high_f}", result='already_in_eco')
-                return
+            kvlog(logger, logging.NOTICE, device='nest', action='set_away',
+                  eco_bounds=f"{current_eco_heat}-{current_eco_cool}", result='already_in_eco')
+            return
 
-        # Enable ECO mode with bounds
+        # Enable ECO mode
         kvlog(logger, logging.NOTICE, device='nest', action='set_away',
-              eco_low=eco_low_f, eco_high=eco_high_f, reason='entering_away_mode')
+              reason='entering_away_mode')
 
-        # Note: Nest API ECO mode automatically sets the bounds
-        # The bounds are configured in the Nest app or via the SDM API
-        # For now, we just enable ECO mode
         self.set_eco_mode(True)
 
+        # Get new ECO bounds after enabling
+        status = self.get_status()
+        eco_heat = status.get('eco_heat_f')
+        eco_cool = status.get('eco_cool_f')
+
         kvlog(logger, logging.NOTICE, device='nest', action='set_away',
-              eco_bounds=f"{eco_low_f}-{eco_high_f}", result='ok')
+              eco_bounds=f"{eco_heat}-{eco_cool}", result='ok')
 
     def set_sleep_mode(self, temp_f=None):
         """
