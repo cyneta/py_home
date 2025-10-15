@@ -515,6 +515,9 @@ def register_routes(app):
             border-radius: 6px;
             padding: 20px;
         }
+        .card-wide {
+            grid-column: span 4;
+        }
         .card-title {
             font-size: 18px;
             font-weight: 600;
@@ -1153,7 +1156,7 @@ def register_routes(app):
             const logContent = data.content || 'No logs available';
 
             return `
-                <div class="card">
+                <div class="card card-wide">
                     <div class="card-title">📜 Recent Activity</div>
                     ${errorWarning}
                     <div class="log-preview">${logContent}</div>
