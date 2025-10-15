@@ -593,6 +593,30 @@ def register_routes(app):
             background: #30363d;
             border-color: #58a6ff;
         }
+        .log-preview {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin-bottom: 10px;
+        }
+        .view-logs-link {
+            display: inline-block;
+            color: #58a6ff;
+            text-decoration: none;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .view-logs-link:hover {
+            text-decoration: underline;
+        }
         @media (max-width: 768px) {
             body { padding: 10px; }
             .grid { grid-template-columns: 1fr; }
@@ -621,13 +645,14 @@ def register_routes(app):
 
             try {
                 // Load all status data in parallel
-                const [nest, sensibo, tapo, tempstick, presence, systemStatus] = await Promise.all([
+                const [nest, sensibo, tapo, tempstick, presence, systemStatus, logs] = await Promise.all([
                     fetchNestStatus(),
                     fetchSensiboStatus(),
                     fetchTapoStatus(),
                     fetchTempStickStatus(),
                     fetchPresence(),
-                    fetchSystemStatus()
+                    fetchSystemStatus(),
+                    fetchAutomationLogs()
                 ]);
 
                 // Build dashboard HTML
@@ -639,6 +664,7 @@ def register_routes(app):
                         ${renderTapoCard(tapo)}
                         ${renderPresenceCard(presence)}
                         ${renderSystemCard(systemStatus)}
+                        ${renderLogsCard(logs)}
                     </div>
                 `;
 
@@ -829,6 +855,30 @@ def register_routes(app):
                 night_mode: false,
                 automations_enabled: true,
                 _stale: false,
+                _error: false
+            };
+        }
+
+        async function fetchAutomationLogs() {
+            try {
+                const response = await fetch('/logs/automations.log?lines=20&format=text');
+                if (response.ok) {
+                    const text = await response.text();
+                    return {
+                        content: text,
+                        _error: false
+                    };
+                }
+            } catch (e) {
+                return {
+                    content: '',
+                    _error: true,
+                    error: e.message
+                };
+            }
+
+            return {
+                content: 'No logs available',
                 _error: false
             };
         }
@@ -1094,6 +1144,20 @@ def register_routes(app):
                         </button>
                         <div id="serviceStatus" style="margin-top: 10px; text-align: center; font-size: 12px; color: #8b949e;"></div>
                     </div>
+                </div>
+            `;
+        }
+
+        function renderLogsCard(data) {
+            const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading logs</span></div>' : '';
+            const logContent = data.content || 'No logs available';
+
+            return `
+                <div class="card">
+                    <div class="card-title">📜 Recent Activity</div>
+                    ${errorWarning}
+                    <div class="log-preview">${logContent}</div>
+                    <a href="/logs" class="view-logs-link">View Full Logs →</a>
                 </div>
             `;
         }
