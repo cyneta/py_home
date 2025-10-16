@@ -101,3 +101,4 @@
 task: review the config
 task: Update documentation (README.md, GUIDE.md) with new intent-based API examples and architecture
 task: Audit for deprecation warnings in codebase and consider removing unused code
+task: Investigate unintended ECO mode triggers - add logging to track what triggers leaving_home automation
