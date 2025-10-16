@@ -46,7 +46,6 @@ AUTOMATIONS (predefined routines):
 - goodnight: Sleep mode (Nest to 68°F, turn off Sensibo AC, turn off all outlets)
 - im_home: Welcome home (Nest to 72°F)
 - good_morning: Morning routine (Nest to 70°F, get weather)
-- temp_coordination: Coordinate Nest and Sensibo to avoid conflicts
 
 DEVICES:
 Nest Thermostat:
@@ -266,8 +265,7 @@ def execute_action(parsed_command: Dict[str, Any], dry_run: bool = False) -> Dic
                 "leaving_home": "automations.leaving_home",
                 "goodnight": "automations.goodnight",
                 "im_home": "automations.im_home",
-                "good_morning": "automations.good_morning",
-                "temp_coordination": "automations.temp_coordination"
+                "good_morning": "automations.good_morning"
             }
 
             if action in automation_map:

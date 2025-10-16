@@ -38,7 +38,6 @@ def test_automation_imports():
         'good_morning',
         'travel_time',
         'task_router',
-        'temp_coordination',
         'presence_monitor',
         'traffic_alert'
     ]
@@ -75,8 +74,7 @@ def test_automation_execution():
         'leaving_home': 'Set house to away mode',
         'goodnight': 'Sleep mode with AC/lights off',
         'im_home': 'Welcome home routine',
-        'good_morning': 'Morning routine with weather',
-        'temp_coordination': 'HVAC coordination'
+        'good_morning': 'Morning routine with weather'
     }
 
     # Automations not yet updated with dry-run (just check structure)
@@ -181,11 +179,6 @@ def test_automation_logic():
             'checks': ['classify_task', 'github', 'checkvist'],
             'description': 'Task routing with AI'
         },
-        {
-            'name': 'temp_coordination',
-            'checks': ['get_status', 'turn_on', 'turn_off'],
-            'description': 'HVAC coordination'
-        }
     ]
 
     results = []

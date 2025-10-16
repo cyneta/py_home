@@ -496,7 +496,6 @@ def test_automations(skip: bool = False) -> List[TestResult]:
         'good_morning',
         'travel_time',
         'task_router',
-        'temp_coordination',
         'presence_monitor',
         'traffic_alert'
     ]

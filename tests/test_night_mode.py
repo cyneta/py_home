@@ -1,11 +1,10 @@
 """
 Tests for HVAC Sleep Time Integration
 
-These tests verify that automations use the new time-based sleep detection
-(is_sleep_time from lib.hvac_logic) instead of the deprecated night_mode flag system.
+These tests verify that automations use the new time-based sleep detection APIs
+instead of the deprecated night_mode flag system.
 
 Tests cover:
-- temp_coordination.py uses is_sleep_time()
 - goodnight.py uses set_sleep_mode() API
 - good_morning.py uses set_comfort_mode() API
 """
@@ -21,19 +20,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class TestHVACSleepTimeIntegration:
     """Tests for HVAC sleep time integration with automations"""
-
-    def test_temp_coordination_uses_sleep_time_logic(self):
-        """Test temp_coordination.py uses sleep time logic"""
-        # Read temp_coordination source to verify integration
-        temp_coord_path = Path(__file__).parent.parent / 'automations' / 'temp_coordination.py'
-
-        if temp_coord_path.exists():
-            source = temp_coord_path.read_text(encoding='utf-8')
-
-            # Verify it imports is_sleep_time from hvac_logic (new architecture)
-            assert 'from lib.hvac_logic import is_sleep_time' in source or \
-                   'import lib.hvac_logic' in source, \
-                   "temp_coordination.py should import is_sleep_time from lib.hvac_logic"
 
     def test_goodnight_uses_sleep_mode_api(self):
         """Test goodnight.py uses sleep mode API"""

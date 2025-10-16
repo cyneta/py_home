@@ -160,35 +160,6 @@ def test_good_morning_workflow():
         return False
 
 
-def test_temp_coordination_workflow():
-    """Test temperature coordination automation workflow"""
-    print(f"\n{YELLOW}Testing Temperature Coordination Workflow...{RESET}")
-
-    try:
-        from automations.temp_coordination import run
-
-        # Execute automation
-        result = run()
-
-        # Verify expected data
-        assert result['action'] == 'temp_coordination', "Wrong action type"
-        assert 'nest_temp' in result, "Nest temperature missing"
-        assert 'ac_on' in result, "AC status missing"
-        assert 'changes_made' in result, "Changes list missing"
-
-        print(f"{GREEN}✓{RESET} Temperature coordination workflow test passed")
-        print(f"  - Nest temp: {result['nest_temp']}°F")
-        print(f"  - AC status: {'ON' if result['ac_on'] else 'OFF'}")
-        print(f"  - Changes: {len(result['changes_made'])}")
-        return True
-
-    except Exception as e:
-        print(f"{RED}✗{RESET} Temperature coordination workflow test failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
 def test_concurrent_automations():
     """Test multiple automations running concurrently"""
     print(f"\n{YELLOW}Testing Concurrent Automations...{RESET}")
@@ -345,7 +316,6 @@ def main():
         ("Goodnight Workflow", test_goodnight_workflow),
         ("I'm Home Workflow", test_im_home_workflow),
         ("Good Morning Workflow", test_good_morning_workflow),
-        ("Temperature Coordination", test_temp_coordination_workflow),
         ("Concurrent Automations", test_concurrent_automations),
         ("Device Coordination", test_device_coordination),
         ("Component Interaction", test_component_interaction),

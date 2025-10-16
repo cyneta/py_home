@@ -159,8 +159,6 @@ automation:
     min_battery_percent: 30
     target_temp_f: 72
 
-  # temp_coordination settings moved to centralized 'temperatures:' section above
-
   grow_light:
     on_time: "06:00"
     off_time: "20:00"

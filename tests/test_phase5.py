@@ -20,12 +20,6 @@ nest.set_comfort_mode()
 nest.set_sleep_mode()
 print("  ✓ All state transitions work\n")
 
-# Test 3: Temp coordination
-print("Test 3: temp_coordination")
-from automations import temp_coordination
-result = temp_coordination.run()
-print(f"  ✓ Returned: {result}\n")
-
 print("="*50)
 print("✅ ALL TESTS PASSED - No 400 errors!")
 print("="*50)

@@ -228,7 +228,7 @@ def main():
         print("\nYou can now use:")
         print("  - python -m components.sensibo.demo")
         print("  - python -m components.sensibo.test")
-        print("  - Automation scripts (goodnight.py, temp_coordination.py, etc.)")
+        print("  - Automation scripts (goodnight.py, etc.)")
 
     elif devices and not has_config:
         print("⚠️  Devices found but not configured in config.yaml")

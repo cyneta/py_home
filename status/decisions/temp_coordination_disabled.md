@@ -100,3 +100,38 @@ crontab -e
 ## Notes
 
 This change aligns with the principle: **py_home should only change setpoints during explicit time and location transitions, not continuously.**
+
+---
+
+## Update: Phase 6 Cleanup (2025-10-16)
+
+**Status**: Complete
+**Commit**: 3e41ce3
+
+All remaining references to `temp_coordination` have been removed from the codebase:
+
+**Files Cleaned**:
+- `server/ai_handler.py`: Removed from AI automation map and context
+- `test_all.py`: Removed from automation test list
+- `tests/test_automations.py`: Removed from import and execution tests
+- `tests/test_integration.py`: Removed `test_temp_coordination_workflow` function
+- `tests/test_missing_automations.py`: Removed from automation lists
+- `tests/test_night_mode.py`: Removed temp_coordination test
+- `tests/test_phase5.py`: Removed temp_coordination import test
+- `config/config.yaml`: Removed temp_coordination comment
+- `components/sensibo/config.py`: Updated example automation list
+
+**Verification**:
+- 0 references remaining in *.py files
+- 0 references remaining in *.yaml files
+- Only historical references in git history and plans/docs
+
+**Replacement Architecture**:
+The temp_coordination functionality has been completely replaced by:
+1. **lib/transitions.py**: Centralized state transitions (wake, sleep, away, home)
+2. **automations/scheduler.py**: Time-based triggers (05:00 wake, 22:30 sleep)
+3. All automations refactored to use transitions:
+   - `goodnight.py`: 120→40 lines (-67%)
+   - `good_morning.py`: 140→45 lines (-68%)
+   - `leaving_home.py`: Uses `transition_to_away()`
+   - `pre_arrival.py`: Uses `transition_to_home()`
