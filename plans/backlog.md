@@ -98,13 +98,16 @@
   - Improved title clarity: "TempStick" → "Outdoor Sensor"
   - Optimized field order: Temperature → Humidity → Battery → Sensor Status
   - Enhanced information hierarchy with battery color-coding
-- ✅ Create tests for weather-aware temperature logic
-  - Added test_weather_aware_temps.py with 6 comprehensive tests
-  - Tests verify cold weather (72°F), hot weather (68°F), and normal weather (70°F) targets
-  - Includes boundary testing and API failure fallback
-  - Test suite now at 206 passed (was 200)
+- ✅ Make weather-aware temperature settings configurable
+  - Added temperatures.weather_aware section to config.yaml
+  - Cold threshold (40°F), cold target (72°F), hot threshold (75°F), hot target (68°F)
+  - Updated lib/transitions.py to read from config instead of hardcoded values
+  - All tests pass (225 passed, including 6 weather-aware tests)
 
-task: review the config
-task: Update documentation (README.md, GUIDE.md) with new intent-based API examples and architecture
-task: Audit for deprecation warnings in codebase and consider removing unused code
-task: Investigate unintended ECO mode triggers - add logging to track what triggers leaving_home automation
+## Task Inbox
+- Review the config
+- Update documentation (README.md, GUIDE.md) with new intent-based API examples and architecture
+- Devise backup system for pi
+- Evolve AI Aware requests
+- Audit the dry run test system. does it produce valid tests? Is it really dry run?
+
