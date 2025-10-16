@@ -1,16 +1,50 @@
 # Backlog
 
-## Medium Priority
+## High Priority - Core System
 
-### Review Temperature Coordination Panel
-**Task:** Review TS (Temperature/Status?) panel layout
+### Fix Notifications
+**Task:** Debug notification issues
 **Items:**
-- Panel title clarity
-- Field order optimization
-- Information hierarchy
+- Get ntfy notifications working
+- Fix blank Shortcuts/Scriptable notifications
+
+### Review Tapo Outlet Configuration
+**Task:** Review and update Tapo outlet names and assignments
+**Items:**
+- Review outlet naming conventions
+- Review master bedroom heater management on Tapo outlet
+
+
+## Medium Priority - Device Integrations
+
+### Integrate Alen Air Purifiers
+**Task:** Complete Tuya/Alen air purifier integration
+**Status:** Partial config exists in config.yaml, needs implementation
+
+### Integrate Roborock Robot Vacuum
+**Task:** Add Roborock vacuum control and status to automation system
+
+### Set Up Grow Light Automation
+**Task:** Configure table light as grow light with time-based automation
+
+
+## Medium Priority - Productivity Shortcuts
+
+### YouTube Music Integration
+**Task:** Create shortcuts for playlists, favorites, playback control
+
+### Checkvist Integration
+**Task:** Add shortcuts for task management integration
+
+### Siri Shortcuts for HomePod
+**Task:** Create Siri shortcuts for controlling HomePod speakers
 
 
 ## Low Priority - Technical Debt
+
+### Audit and Understand Test Suite
+**Task:** Review test suite structure, coverage, and mocking patterns
+**Goal:** Better understand testing approach for future development
 
 ### Fix 71 Pytest Warnings - Test Return Values
 **Issue:** 71 warnings about test functions returning values instead of None
@@ -45,3 +79,7 @@
   - Clarified that ECO bounds must be set in Google Home app (API read-only)
   - Updated config comments to remove misleading eco_low/eco_high values
   - Updated code documentation to reflect API limitations
+- ✅ Review TempStick (Outdoor Sensor) dashboard panel
+  - Improved title clarity: "TempStick" → "Outdoor Sensor"
+  - Optimized field order: Temperature → Humidity → Battery → Sensor Status
+  - Enhanced information hierarchy with battery color-coding

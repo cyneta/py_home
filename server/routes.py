@@ -1001,7 +1001,7 @@ def register_routes(app):
 
             return `
                 <div class="card">
-                    <div class="card-title">🌡️ ${data.sensor_name || 'TempStick'}</div>
+                    <div class="card-title">🌡️ Outdoor Sensor</div>
                     ${errorWarning}
                     ${staleWarning}
                     <div class="temp-display">${data.temperature_f}°F</div>
@@ -1010,12 +1010,12 @@ def register_routes(app):
                         <span class="status-value">${data.humidity}%</span>
                     </div>
                     <div class="status-row">
-                        <span class="status-label">Status</span>
-                        <span class="badge ${statusBadge}">${statusText}</span>
-                    </div>
-                    <div class="status-row">
                         <span class="status-label">Battery</span>
                         <span class="status-value ${batteryClass}">${data.battery_pct}%</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Sensor</span>
+                        <span class="badge ${statusBadge}">${statusText}</span>
                     </div>
                 </div>
             `;
