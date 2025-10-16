@@ -225,12 +225,14 @@ curl http://raspberrypi.local:5000/status
 crontab -e
 
 # Add scheduled automations
-# NOTE: Temperature coordination is DISABLED - temps are controlled by explicit automations
-#       (goodnight, good_morning, leaving_home, im_home) to avoid overriding manual changes
-# */15 * * * * cd /home/pi/py_home && /home/pi/py_home/venv/bin/python automations/temp_coordination.py >> /home/pi/py_home/logs/temp_coordination.log 2>&1
-
-# Good morning routine at 7 AM weekdays
-0 7 * * 1-5 cd /home/pi/py_home && /home/pi/py_home/venv/bin/python automations/good_morning.py >> /home/pi/py_home/logs/good_morning.log 2>&1
+#
+# IMPORTANT: Scheduler automation runs every minute and checks for exact time matches
+# - It triggers wake transition at 05:00 and sleep transition at 22:30
+# - Times are configured in config/config.yaml (schedule.wake_time, schedule.sleep_time)
+# - Uses .scheduler_state file to prevent duplicate runs on same day
+#
+# Run scheduler every minute (checks for 05:00 wake and 22:30 sleep transitions)
+* * * * * cd /home/matt.wheeler/py_home && /home/matt.wheeler/py_home/venv/bin/python automations/scheduler.py >> /home/matt.wheeler/py_home/data/logs/automations.log 2>&1
 
 # Save and exit (Ctrl+O, Enter, Ctrl+X in nano)
 ```
@@ -309,18 +311,15 @@ nssm status py_home
 ```powershell
 # Open Task Scheduler (taskschd.msc)
 
-# Create task for temp_coordination
-# Name: py_home Temperature Coordination
-# Trigger: Repeat every 15 minutes
+# Create task for scheduler (time-based transitions)
+# Name: py_home Scheduler
+# Trigger: Repeat every 1 minute
 # Action: Start program
 #   Program: C:\Python39\python.exe
-#   Arguments: C:\git\cyneta\py_home\automations\temp_coordination.py
+#   Arguments: C:\git\cyneta\py_home\automations\scheduler.py
 #   Start in: C:\git\cyneta\py_home
-
-# Create task for good_morning
-# Name: py_home Good Morning
-# Trigger: Daily at 7:00 AM, weekdays only
-# Action: Same as above but with good_morning.py
+# Note: Scheduler checks for exact time matches (05:00 wake, 22:30 sleep)
+#       Times configured in config/config.yaml
 ```
 
 ---
@@ -509,11 +508,12 @@ sudo systemctl restart py_home
 ### View Cron Job Logs
 
 ```bash
-# View temperature coordination logs
-tail -f ~/py_home/logs/temp_coordination.log
+# View automations log (includes scheduler and all automations)
+tail -f ~/py_home/data/logs/automations.log
 
-# View good morning logs
-tail -f ~/py_home/logs/good_morning.log
+# Or view with grep to filter
+tail -f ~/py_home/data/logs/automations.log | grep automation=scheduler
+tail -f ~/py_home/data/logs/automations.log | grep automation=goodnight
 ```
 
 ### Disk Space
@@ -584,8 +584,8 @@ sudo systemctl status cron
 grep CRON /var/log/syslog
 
 # Test cron job manually
-cd /home/pi/py_home
-/home/pi/py_home/venv/bin/python automations/temp_coordination.py
+cd /home/matt.wheeler/py_home
+/home/matt.wheeler/py_home/venv/bin/python automations/scheduler.py --dry-run
 
 # Common issues:
 # 1. Wrong paths (use absolute paths)
@@ -825,7 +825,7 @@ curl http://localhost:5000/status
 python test_all.py
 
 # Logs
-tail -f ~/py_home/logs/temp_coordination.log
+tail -f ~/py_home/data/logs/automations.log
 sudo journalctl -u py_home -n 50
 
 # Updates

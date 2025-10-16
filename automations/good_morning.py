@@ -49,92 +49,30 @@ def run():
             'reason': 'Automations disabled via master switch'
         }
 
-    actions = []
-    errors = []
+    # Call wake transition - handles all device control and notifications
+    from lib.transitions import transition_to_wake
+    result = transition_to_wake(dry_run=DRY_RUN)
 
-    # 1. Set Nest to comfort mode (active 70°F, smart HVAC mode selection)
-    try:
-        from components.nest import NestAPI
+    # Log transition result
+    kvlog(logger, logging.NOTICE, automation='good_morning',
+          transition='wake', status=result['status'],
+          actions_count=len(result['actions']),
+          errors_count=len(result['errors']),
+          duration_ms=result['duration_ms'])
 
-        nest = NestAPI(dry_run=DRY_RUN)
-
-        api_start = time.time()
-        nest.set_comfort_mode()  # Intent-based API - idempotent, config-driven
-        duration_ms = int((time.time() - api_start) * 1000)
-
-        kvlog(logger, logging.NOTICE, automation='good_morning', device='nest',
-              action='set_comfort', result='ok', duration_ms=duration_ms)
-
-        actions.append("Nest → comfort mode (70°F)")
-    except Exception as e:
-        kvlog(logger, logging.ERROR, automation='good_morning', device='nest',
-              action='set_comfort', error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Nest: {e}")
-        actions.append(f"Nest failed: {str(e)[:30]}")
-
-    # 2. Get weather forecast
-    weather_summary = None
-    try:
-        from services import get_weather_summary
-
-        api_start = time.time()
-        weather_summary = get_weather_summary()
-        duration_ms = int((time.time() - api_start) * 1000)
-
-        kvlog(logger, logging.NOTICE, automation='good_morning', service='weather',
-              action='get_summary', result='ok', duration_ms=duration_ms)
-
-        # Add weather as first action (most important for morning)
-        actions.insert(0, weather_summary)
-    except Exception as e:
-        kvlog(logger, logging.ERROR, automation='good_morning', service='weather',
-              action='get_summary', error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Weather: {e}")
-        actions.insert(0, "Weather unavailable")
-
-    # 3. Future: Turn on coffee maker
-    # Uncomment when coffee maker outlet is identified
-    # try:
-    #     from components.tapo import turn_on
-    #     api_start = time.time()
-    #     turn_on("Heater")  # Replace with actual coffee maker name
-    #     duration_ms = int((time.time() - api_start) * 1000)
-    #     kvlog(logger, logging.NOTICE, automation='good_morning', device='coffee_maker',
-    #           action='turn_on', result='ok', duration_ms=duration_ms)
-    #     actions.append("Coffee maker started")
-    # except Exception as e:
-    #     kvlog(logger, logging.ERROR, automation='good_morning', device='coffee_maker',
-    #           action='turn_on', error_type=type(e).__name__, error_msg=str(e))
-    #     errors.append(f"Coffee: {e}")
-    #     actions.append(f"Coffee maker failed: {str(e)[:30]}")
-
-    # 4. Send morning summary notification
-    try:
-        if not DRY_RUN:
-            from lib.notifications import send_automation_summary
-
-            title = "☀️ Good Morning"
-            priority = 1 if errors else 0  # High priority if errors
-
-            send_automation_summary(title, actions, priority=priority)
-
-            kvlog(logger, logging.INFO, automation='good_morning', action='notification', result='sent')
-        else:
-            kvlog(logger, logging.DEBUG, automation='good_morning', action='notification', result='skipped_dry_run')
-    except Exception as e:
-        kvlog(logger, logging.ERROR, automation='good_morning', action='notification',
-              error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Notification: {e}")
+    # Note: Weather brief is now included in the transition notification
+    # The transition already fetches weather and includes it in the notification
+    # with weather-aware temperature adjustments
 
     # Complete
     total_duration_ms = int((time.time() - start_time) * 1000)
     kvlog(logger, logging.NOTICE, automation='good_morning', event='complete',
-          duration_ms=total_duration_ms, errors=len(errors))
+          duration_ms=total_duration_ms, errors=len(result['errors']))
 
     return {
         'action': 'good_morning',
-        'status': 'success' if not errors else 'partial',
-        'errors': errors,
+        'status': result['status'],
+        'errors': result['errors'],
         'duration_ms': total_duration_ms
     }
 

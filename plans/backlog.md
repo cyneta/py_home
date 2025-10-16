@@ -57,6 +57,21 @@
 - tests/test_write_operations.py
 **Solution:** Replace `return <value>` with `assert <value>` in affected tests
 
+### Extract py_home Design Principles
+**Task:** Review codebase and extract established design patterns into design/principles/
+**Context:** We discovered the "user control" principle during scheduler design. There are likely more implicit principles worth documenting.
+**Examples to document:**
+- Error handling: Continue on device failure, log but don't crash
+- Notifications: User-facing macro messages vs debug logs
+- State management: File-based state for persistence
+- Dry-run mode: All automations support --dry-run
+- Idempotency: Intent-based APIs (set_comfort_mode can be called repeatedly)
+- Configuration: config.yaml for behavior, .env for secrets
+- Weather integration: Graceful fallback on API failure
+- Component independence: One device failure doesn't break others
+**Output:** Multiple design/principles/*.md files documenting each principle with examples
+**Status:** user_control.md complete, others pending
+
 ## Completed
 - ✅ HVAC redesign (Phases 1-5)
 - ✅ Remove deprecated night_mode flag system
@@ -83,3 +98,4 @@
   - Improved title clarity: "TempStick" → "Outdoor Sensor"
   - Optimized field order: Temperature → Humidity → Battery → Sensor Status
   - Enhanced information hierarchy with battery color-coding
+task: review the config

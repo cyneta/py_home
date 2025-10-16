@@ -33,5 +33,6 @@ Thumbs.db
 .presence_state
 .night_mode
 .automation_disabled
+.scheduler_state
 data/location.json
 

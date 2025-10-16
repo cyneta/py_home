@@ -81,55 +81,19 @@ def run():
             'reason': 'Automations disabled via master switch'
         }
 
-    actions = []
-    errors = []
+    # Call home transition - handles all HVAC control
+    # Pass send_notification=False since Stage 2 (im_home.py) will send the welcome notification
+    from lib.transitions import transition_to_home
+    result = transition_to_home(dry_run=DRY_RUN, send_notification=False)
 
-    # 1. Set Nest to comfort mode (immediate response for arrival)
-    try:
-        from components.nest import NestAPI
+    # Log transition result
+    kvlog(logger, logging.NOTICE, automation='pre_arrival',
+          transition='home', status=result['status'],
+          actions_count=len(result['actions']),
+          errors_count=len(result['errors']),
+          duration_ms=result['duration_ms'])
 
-        nest = NestAPI(dry_run=DRY_RUN)
-
-        api_start = time.time()
-        nest.set_comfort_mode()  # Intent-based API - idempotent, config-driven
-        duration_ms = int((time.time() - api_start) * 1000)
-
-        kvlog(logger, logging.NOTICE, automation='pre_arrival', device='nest',
-              action='set_comfort', result='ok', duration_ms=duration_ms)
-
-        actions.append("Nest → comfort mode (70°F)")
-    except Exception as e:
-        kvlog(logger, logging.ERROR, automation='pre_arrival', device='nest',
-              action='set_comfort', error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Nest: {e}")
-        actions.append(f"Nest failed: {str(e)[:30]}")
-
-    # 2. Set Sensibo based on time of day (immediate response for arrival)
-    try:
-        from components.sensibo import SensiboAPI
-        from lib.hvac_logic import is_sleep_time
-
-        sensibo = SensiboAPI(dry_run=DRY_RUN)
-
-        api_start = time.time()
-        if is_sleep_time():
-            sensibo.set_sleep_mode()  # Active 66°F for bedroom during sleep hours
-            actions.append("Bedroom → 66°F (sleep mode)")
-        else:
-            sensibo.set_comfort_mode()  # Active 70°F to help Nest
-            actions.append("Bedroom → 70°F (comfort mode)")
-        duration_ms = int((time.time() - api_start) * 1000)
-
-        kvlog(logger, logging.NOTICE, automation='pre_arrival', device='sensibo',
-              action='set_mode', result='ok', duration_ms=duration_ms)
-
-    except Exception as e:
-        kvlog(logger, logging.ERROR, automation='pre_arrival', device='sensibo',
-              action='set_mode', error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Sensibo: {e}")
-        actions.append(f"Sensibo failed: {str(e)[:30]}")
-
-    # 3. Turn on outdoor lights if dark
+    # Unique logic for pre_arrival: Turn on outdoor lights if dark
     if is_dark():
         try:
             from components.tapo import TapoAPI
@@ -145,30 +109,31 @@ def run():
             kvlog(logger, logging.NOTICE, automation='pre_arrival', device='tapo',
                   action='outdoor_lights', result='ok', duration_ms=duration_ms)
 
-            actions.append("Pathway lights on")
+            result['actions'].append("Pathway lights on")
         except Exception as e:
             kvlog(logger, logging.ERROR, automation='pre_arrival', device='tapo',
                   action='outdoor_lights', error_type=type(e).__name__, error_msg=str(e))
-            errors.append(f"Outdoor lights: {e}")
-            actions.append(f"Lights failed: {str(e)[:30]}")
+            result['errors'].append(f"Outdoor lights: {e}")
+            result['actions'].append(f"Lights failed: {str(e)[:30]}")
 
-    # 4. Update presence state
+    # Unique logic for pre_arrival: Update presence state to 'home'
     if not DRY_RUN:
         update_presence_state()
 
-    # Note: No notification sent - wait for Stage 2 (im_home.py)
+    # Note: No notification sent - transition_to_home() doesn't send notifications
+    # Stage 2 (im_home.py) will send the welcome notification
 
     # Complete
     total_duration_ms = int((time.time() - start_time) * 1000)
     kvlog(logger, logging.NOTICE, automation='pre_arrival', event='complete', stage=1,
-          duration_ms=total_duration_ms, errors=len(errors), actions_count=len(actions))
+          duration_ms=total_duration_ms, errors=len(result['errors']), actions_count=len(result['actions']))
 
     return {
         'action': 'pre_arrival',
         'stage': 1,
-        'status': 'success' if not errors else 'partial',
-        'actions': actions,
-        'errors': errors,
+        'status': result['status'],
+        'actions': result['actions'],
+        'errors': result['errors'],
         'duration_ms': total_duration_ms,
         'note': 'Stage 2 (indoor lights + notification) will trigger on WiFi connect'
     }
