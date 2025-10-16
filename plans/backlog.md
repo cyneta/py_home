@@ -99,3 +99,5 @@
   - Optimized field order: Temperature → Humidity → Battery → Sensor Status
   - Enhanced information hierarchy with battery color-coding
 task: review the config
+task: Update documentation (README.md, GUIDE.md) with new intent-based API examples and architecture
+task: Audit for deprecation warnings in codebase and consider removing unused code
