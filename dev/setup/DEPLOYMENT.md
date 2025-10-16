@@ -225,8 +225,9 @@ curl http://raspberrypi.local:5000/status
 crontab -e
 
 # Add scheduled automations
-# Temperature coordination every 15 minutes
-*/15 * * * * cd /home/pi/py_home && /home/pi/py_home/venv/bin/python automations/temp_coordination.py >> /home/pi/py_home/logs/temp_coordination.log 2>&1
+# NOTE: Temperature coordination is DISABLED - temps are controlled by explicit automations
+#       (goodnight, good_morning, leaving_home, im_home) to avoid overriding manual changes
+# */15 * * * * cd /home/pi/py_home && /home/pi/py_home/venv/bin/python automations/temp_coordination.py >> /home/pi/py_home/logs/temp_coordination.log 2>&1
 
 # Good morning routine at 7 AM weekdays
 0 7 * * 1-5 cd /home/pi/py_home && /home/pi/py_home/venv/bin/python automations/good_morning.py >> /home/pi/py_home/logs/good_morning.log 2>&1
