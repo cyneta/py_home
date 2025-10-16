@@ -65,14 +65,21 @@ def transition_to_wake(dry_run=False):
 
     Actions:
     1. Fetch current weather
-    2. Calculate target temp based on weather:
-       - < 40°F → 72°F (extra warmth)
-       - > 75°F → 68°F (lighter)
-       - 40-75°F → 70°F (normal comfort)
+    2. Calculate target temp based on weather (configurable thresholds):
+       - < cold_threshold → cold_target (extra warmth, default 40°F → 72°F)
+       - > hot_threshold → hot_target (lighter, default 75°F → 68°F)
+       - Between thresholds → comfort temp (normal, default 70°F)
     3. Set Nest to comfort mode with calculated temp
     4. Set Sensibo to comfort mode with calculated temp
     5. Turn ON grow light (placeholder for now)
     6. Send ONE macro notification with weather + all actions
+
+    Config:
+        temperatures.weather_aware.cold_threshold (default: 40)
+        temperatures.weather_aware.cold_target (default: 72)
+        temperatures.weather_aware.hot_threshold (default: 75)
+        temperatures.weather_aware.hot_target (default: 68)
+        temperatures.comfort (default: 70)
 
     Args:
         dry_run: If True, log actions but don't execute
@@ -108,12 +115,17 @@ def transition_to_wake(dry_run=False):
         kvlog(logger, logging.INFO, transition='wake', action='get_weather',
               temp=temp, condition=condition, duration_ms=duration_ms)
 
-        # Calculate target based on outdoor temp
-        if temp < 40:
-            target_temp = 72
+        # Calculate target based on outdoor temp (weather-aware)
+        cold_threshold = get('temperatures.weather_aware.cold_threshold', 40)
+        hot_threshold = get('temperatures.weather_aware.hot_threshold', 75)
+        cold_target = get('temperatures.weather_aware.cold_target', 72)
+        hot_target = get('temperatures.weather_aware.hot_target', 68)
+
+        if temp < cold_threshold:
+            target_temp = cold_target
             mode_note = f"Extra warmth mode ({temp:.0f}°F outside)"
-        elif temp > 75:
-            target_temp = 68
+        elif temp > hot_threshold:
+            target_temp = hot_target
             mode_note = f"Light mode ({temp:.0f}°F outside)"
         else:
             target_temp = get('temperatures.comfort', 70)

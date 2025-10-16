@@ -40,6 +40,13 @@ temperatures:
   cool_above: 75          # Use COOL when outdoor temp > 75°F
   # Between 65-75°F: Use HEATCOOL (auto mode, let thermostat decide)
 
+  # Weather-aware wake temperature adjustments (morning only)
+  weather_aware:
+    cold_threshold: 40    # Outdoor temp < 40°F triggers cold weather mode
+    cold_target: 72       # Target temp for cold mornings (extra warmth)
+    hot_threshold: 75     # Outdoor temp > 75°F triggers hot weather mode
+    hot_target: 68        # Target temp for hot mornings (lighter)
+
 # Time-based Schedule
 schedule:
   sleep_time: "22:30"     # Bedtime (switch to sleep mode)
