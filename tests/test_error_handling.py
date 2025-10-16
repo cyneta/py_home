@@ -73,7 +73,7 @@ def test_invalid_credentials():
 
             try:
                 # This should fail with authentication error
-                nest.set_temperature(70)
+                nest.set_comfort_mode(70)
                 # In dry-run mode, it won't actually call the API
                 print(f"{GREEN}✓{RESET} Invalid credentials test passed (dry-run mode)")
                 print(f"  - Dry-run mode skips authentication")
@@ -163,7 +163,7 @@ def test_invalid_temperature():
         passed_tests = 0
         for temp, description in test_cases:
             try:
-                nest.set_temperature(temp)
+                nest.set_comfort_mode(temp)
                 # In dry-run, it logs but doesn't validate
                 passed_tests += 1
             except Exception as e:
@@ -252,7 +252,7 @@ def test_concurrent_api_calls():
 
         def make_call(temp):
             try:
-                nest.set_temperature(temp)
+                nest.set_comfort_mode(temp)
             except Exception as e:
                 errors.append(str(e))
 
@@ -331,7 +331,7 @@ def test_rate_limiting():
         # Make rapid successive calls
         start_time = time.time()
         for i in range(5):
-            nest.set_temperature(70 + i)
+            nest.set_comfort_mode(70 + i)
         duration = time.time() - start_time
 
         print(f"{GREEN}✓{RESET} Rate limiting test passed")

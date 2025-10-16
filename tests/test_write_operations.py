@@ -106,7 +106,7 @@ def test_nest_set_temperature():
         nest = NestAPI(dry_run=True)
 
         # This should log command but not execute
-        nest.set_temperature(72, mode='HEAT')
+        nest.set_comfort_mode(72, mode='HEAT')
 
         print(f"{GREEN}✓{RESET} Nest set_temperature dry-run test passed")
         return True
@@ -128,7 +128,7 @@ def test_nest_set_temperature_cool():
         nest = NestAPI(dry_run=True)
 
         # This should log command for cooling
-        nest.set_temperature(68, mode='COOL')
+        nest.set_comfort_mode(68, mode='COOL')
 
         print(f"{GREEN}✓{RESET} Nest set_temperature COOL dry-run test passed")
         return True
@@ -194,7 +194,7 @@ def test_sensibo_set_temperature():
         sensibo = SensiboAPI(dry_run=True)
 
         # This should log but not execute
-        sensibo.set_temperature(70)
+        sensibo.set_comfort_mode(70)
 
         print(f"{GREEN}✓{RESET} Sensibo set_temperature dry-run test passed")
         return True

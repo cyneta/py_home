@@ -230,7 +230,7 @@ def test_device_coordination():
         sensibo = SensiboAPI(dry_run=True)
 
         # Simulate sleep mode
-        nest.set_temperature(68)
+        nest.set_sleep_mode()
         sensibo.turn_off()
 
         print(f"{GREEN}✓{RESET} Device coordination test passed")
@@ -261,7 +261,7 @@ def test_component_interaction():
 
         # Simulate a coordinated action
         tapo.turn_off_all()
-        nest.set_temperature(72)
+        nest.set_comfort_mode()
         sensibo.turn_off()
 
         print(f"{GREEN}✓{RESET} Component interaction test passed")
