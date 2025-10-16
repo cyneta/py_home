@@ -98,6 +98,12 @@
   - Improved title clarity: "TempStick" → "Outdoor Sensor"
   - Optimized field order: Temperature → Humidity → Battery → Sensor Status
   - Enhanced information hierarchy with battery color-coding
+- ✅ Create tests for weather-aware temperature logic
+  - Added test_weather_aware_temps.py with 6 comprehensive tests
+  - Tests verify cold weather (72°F), hot weather (68°F), and normal weather (70°F) targets
+  - Includes boundary testing and API failure fallback
+  - Test suite now at 206 passed (was 200)
+
 task: review the config
 task: Update documentation (README.md, GUIDE.md) with new intent-based API examples and architecture
 task: Audit for deprecation warnings in codebase and consider removing unused code
