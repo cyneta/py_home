@@ -22,26 +22,26 @@ class TestHVACSleepTimeIntegration:
     """Tests for HVAC sleep time integration with automations"""
 
     def test_goodnight_uses_sleep_mode_api(self):
-        """Test goodnight.py uses sleep mode API"""
+        """Test goodnight.py uses sleep transition API"""
         goodnight_path = Path(__file__).parent.parent / 'automations' / 'goodnight.py'
 
         if goodnight_path.exists():
             source = goodnight_path.read_text(encoding='utf-8')
 
-            # Verify it uses the new sleep mode API
-            assert 'set_sleep_mode' in source, \
-                   "goodnight.py should use set_sleep_mode() API"
+            # Verify it uses the new transition layer (which calls set_sleep_mode internally)
+            assert 'transition_to_sleep' in source, \
+                   "goodnight.py should use transition_to_sleep() API"
 
     def test_good_morning_uses_comfort_mode_api(self):
-        """Test good_morning.py uses comfort mode API"""
+        """Test good_morning.py uses wake transition API"""
         morning_path = Path(__file__).parent.parent / 'automations' / 'good_morning.py'
 
         if morning_path.exists():
             source = morning_path.read_text(encoding='utf-8')
 
-            # Verify it uses the new comfort mode API (exits sleep mode)
-            assert 'set_comfort_mode' in source, \
-                   "good_morning.py should use set_comfort_mode() API"
+            # Verify it uses the new transition layer (which calls set_comfort_mode internally)
+            assert 'transition_to_wake' in source, \
+                   "good_morning.py should use transition_to_wake() API"
 
 
 # =============================================================================
