@@ -119,12 +119,43 @@ class ConfigWatcher:
         logger.warning(f"Restarting Flask: {reason}")
 
         # Give time for log message to flush
-        time.sleep(0.5)
+        import logging
+        logging.shutdown()
+        time.sleep(0.2)
 
-        # Restart by replacing current process
-        # This works well with systemd which will restart the service
+        # Check if running under systemd (which has Restart=always)
+        if self._is_systemd():
+            # Under systemd: exit process and let systemd restart it
+            # This is cleaner than execv and doesn't break systemd tracking
+            logger.info("Exiting for systemd restart")
+            sys.exit(0)
+
+        # Not under systemd: replace current process with new one
+        logger.info("Restarting via exec")
         python = sys.executable
         os.execv(python, [python] + sys.argv)
+
+    def _is_systemd(self):
+        """Check if process is running under systemd"""
+        # Check if INVOCATION_ID env var is set (systemd sets this)
+        if os.environ.get('INVOCATION_ID'):
+            return True
+
+        # Check if parent process is systemd
+        try:
+            with open('/proc/self/stat', 'r') as f:
+                # Parent PID is field 4 in /proc/self/stat
+                stat_fields = f.read().split()
+                ppid = int(stat_fields[3])
+
+                # Read parent's cmdline
+                with open(f'/proc/{ppid}/cmdline', 'r') as pf:
+                    parent_cmdline = pf.read()
+                    return 'systemd' in parent_cmdline or ppid == 1
+        except Exception:
+            pass
+
+        return False
 
 
 def start_watcher(app):
