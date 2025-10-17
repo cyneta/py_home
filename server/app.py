@@ -32,6 +32,10 @@ app.config['SECRET_KEY'] = config.SECRET_KEY
 from server.routes import register_routes
 register_routes(app)
 
+# Start config file watcher (auto-reload on config changes)
+from lib.config_watcher import start_watcher
+start_watcher(app)
+
 kvlog(logger, logging.INFO, component='flask', event='configured',
       host=config.HOST, port=config.PORT, debug=config.DEBUG, auth_required=config.REQUIRE_AUTH)
 

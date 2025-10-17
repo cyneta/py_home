@@ -17,7 +17,7 @@ server:
 
 # Automation Settings
 automations:
-  dry_run: false          # Global dry-run mode for testing (can override with --dry-run flag)
+  dry_run: true          # Global dry-run mode for testing (can override with --dry-run flag)
 
 # Device API Timeouts (seconds)
 device_timeouts:

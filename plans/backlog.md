@@ -110,4 +110,5 @@
 - Devise backup system for pi
 - Evolve AI Aware requests
 - Audit the dry run test system. does it produce valid tests? Is it really dry run?
+- Make bedroom heater settable
 
