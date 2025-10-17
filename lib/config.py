@@ -66,11 +66,41 @@ with open(config_path) as f:
 
 # Load local overrides if they exist
 local_config_path = PROJECT_ROOT / 'config' / 'config.local.yaml'
+local_config_raw = None
 if local_config_path.exists():
     with open(local_config_path) as f:
-        local_config = yaml.safe_load(f)
-        if local_config:  # Only merge if file has content
-            config = deep_merge(config, local_config)
+        local_config_raw = yaml.safe_load(f)
+        if local_config_raw:  # Only merge if file has content
+            config = deep_merge(config, local_config_raw)
+
+
+def reload_config():
+    """
+    Reload configuration from disk (for hot-reload on config file changes)
+
+    Returns:
+        New config dict
+    """
+    global config
+
+    # Reload base config
+    with open(config_path) as f:
+        new_config = yaml.safe_load(f)
+
+    # Reload local overrides
+    if local_config_path.exists():
+        with open(local_config_path) as f:
+            local_override = yaml.safe_load(f)
+            if local_override:
+                new_config = deep_merge(new_config, local_override)
+
+    # Resolve environment variables
+    new_config = resolve_env_vars(new_config)
+
+    # Update global config
+    config = new_config
+
+    return config
 
 
 def resolve_env_vars(obj):
@@ -106,6 +136,13 @@ def resolve_env_vars(obj):
 # Resolve all environment variables in config
 config = resolve_env_vars(config)
 
+# Validate config and warn about mismatches
+try:
+    from lib.config_validator import log_config_warnings
+    log_config_warnings(config, local_config_raw)
+except ImportError:
+    pass  # Validator not available
+
 
 def get(path, default=None):
     """
@@ -137,4 +174,4 @@ def get(path, default=None):
 
 
 # Export config for easy importing
-__all__ = ['config', 'get', 'PROJECT_ROOT']
+__all__ = ['config', 'get', 'reload_config', 'PROJECT_ROOT']

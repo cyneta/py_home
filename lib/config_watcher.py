@@ -106,60 +106,28 @@ class ConfigWatcher:
                 # New file appeared
                 logger.info(f"New config file detected: {filepath.name}")
                 self.mtimes[str(filepath)] = current_mtime
-                self._restart_flask(f"New config file: {filepath.name}")
+                self._reload_config(f"New config file: {filepath.name}")
             elif current_mtime > previous_mtime:
                 # File was modified
                 logger.info(f"Config file changed: {filepath.name}")
                 self.mtimes[str(filepath)] = current_mtime
-                self._restart_flask(f"Config changed: {filepath.name}")
+                self._reload_config(f"Config changed: {filepath.name}")
 
-    def _restart_flask(self, reason):
+    def _reload_config(self, reason):
         """
-        Restart the Flask process
+        Reload configuration without restarting Flask
 
         Args:
-            reason: Human-readable reason for restart
+            reason: Human-readable reason for reload
         """
-        logger.warning(f"Restarting Flask: {reason}")
+        logger.info(f"Reloading config: {reason}")
 
-        # Give time for log message to flush
-        import logging
-        logging.shutdown()
-        time.sleep(0.2)
-
-        # Check if running under systemd (which has Restart=always)
-        if self._is_systemd():
-            # Under systemd: exit process and let systemd restart it
-            # This is cleaner than execv and doesn't break systemd tracking
-            logger.info("Exiting for systemd restart")
-            sys.exit(0)
-
-        # Not under systemd: replace current process with new one
-        logger.info("Restarting via exec")
-        python = sys.executable
-        os.execv(python, [python] + sys.argv)
-
-    def _is_systemd(self):
-        """Check if process is running under systemd"""
-        # Check if INVOCATION_ID env var is set (systemd sets this)
-        if os.environ.get('INVOCATION_ID'):
-            return True
-
-        # Check if parent process is systemd
         try:
-            with open('/proc/self/stat', 'r') as f:
-                # Parent PID is field 4 in /proc/self/stat
-                stat_fields = f.read().split()
-                ppid = int(stat_fields[3])
-
-                # Read parent's cmdline
-                with open(f'/proc/{ppid}/cmdline', 'r') as pf:
-                    parent_cmdline = pf.read()
-                    return 'systemd' in parent_cmdline or ppid == 1
-        except Exception:
-            pass
-
-        return False
+            from lib.config import reload_config
+            reload_config()
+            logger.info("Config reloaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to reload config: {e}", exc_info=True)
 
 
 def start_watcher(app):
