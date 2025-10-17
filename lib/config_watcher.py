@@ -67,7 +67,9 @@ class ConfigWatcher:
         self.thread.start()
 
         watched_names = [f.name for f in self.watched_files if f.exists()]
+        watched_paths = [str(f) for f in self.watched_files if f.exists()]
         logger.info(f"Config watcher started (monitoring: {', '.join(watched_names)})")
+        logger.debug(f"Watching paths: {watched_paths}")
 
     def stop(self):
         """Stop the watcher thread"""
@@ -77,13 +79,15 @@ class ConfigWatcher:
 
     def _watch_loop(self, check_interval):
         """Background thread that checks for file changes"""
+        logger.debug("Config watcher loop starting")
         while self.running:
             try:
                 self._check_for_changes()
                 time.sleep(check_interval)
             except Exception as e:
-                logger.error(f"Config watcher error: {e}")
+                logger.error(f"Config watcher error: {e}", exc_info=True)
                 time.sleep(check_interval)
+        logger.debug("Config watcher loop stopped")
 
     def _check_for_changes(self):
         """Check if any watched files have been modified"""
