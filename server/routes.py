@@ -51,6 +51,13 @@ def run_automation_script(script_name, args=None):
 
     # Build command
     cmd = [sys.executable, script_path]
+
+    # Check for dry_run query parameter (takes precedence over config)
+    dry_run = request.args.get('dry_run', '').lower() == 'true'
+    if dry_run:
+        cmd.append('--dry-run')
+        kvlog(logger, logging.INFO, event='dry_run_enabled', script=script_name, source='query_param')
+
     if args:
         cmd.extend(args)
 
