@@ -1,0 +1,289 @@
+                                ${data.automations_enabled ? '⏸️ Disable Automations' : '▶️ Enable Automations'}
+                            </button>
+                            <button
+                                onclick="controlService('restart')"
+                                style="
+                                    flex: 1;
+                                    background: #21262d;
+                                    border: 1px solid #30363d;
+                                    color: #c9d1d9;
+                                    padding: 8px;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                    font-size: 12px;
+                                    font-weight: 600;
+                                "
+                                onmouseover="this.style.background='#30363d'"
+                                onmouseout="this.style.background='#21262d'"
+                            >
+                                🔄 Restart Flask
+                            </button>
+                        </div>
+                        <button
+                            onclick="shutdownPi()"
+                            id="shutdownBtn"
+                            style="
+                                width: 100%;
+                                background: #3d1f1f;
+                                border: 1px solid #f85149;
+                                color: #f85149;
+                                padding: 10px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 600;
+                            "
+                            onmouseover="this.style.background='#4a2626'"
+                            onmouseout="this.style.background='#3d1f1f'"
+                        >
+                            🔌 Shutdown Pi
+                        </button>
+                        <div id="serviceStatus" style="margin-top: 10px; text-align: center; font-size: 12px; color: #8b949e;"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLogsCard(data) {
+            const errorWarning = data._error ? '<div class="status-row"><span class="status-error">❌ Error loading logs</span></div>' : '';
+            const logContent = data.content || 'No logs available';
+
+            return `
+                <div class="card card-wide">
+                    <div class="card-title">📜 Recent Activity</div>
+                    ${errorWarning}
+                    <div class="log-preview">${logContent}</div>
+                    <a href="/logs" class="view-logs-link">View Full Logs →</a>
+                </div>
+            `;
+        }
+
+        async function controlService(action) {
+            const status = document.getElementById('serviceStatus');
+            const actionText = action === 'stop' ? 'Stop' : action === 'restart' ? 'Restart' : 'Start';
+
+            if (!confirm(`${actionText} Flask server?\\n\\n${action === 'stop' ? 'Dashboard will become unavailable.' : action === 'restart' ? 'Dashboard will reload in ~5 seconds.' : 'Flask will start.'}`)) {
+                return;
+            }
+
+            status.innerHTML = `<span style="color: #d29922;">⏳ ${actionText}ing Flask...</span>`;
+
+            try {
+                const response = await fetch('/api/service-control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    status.innerHTML = `<span style="color: #3fb950;">✓ ${actionText} initiated</span>`;
+
+                    if (action === 'restart') {
+                        setTimeout(() => {
+                            status.innerHTML = '<span style="color: #d29922;">⏳ Waiting for Flask...</span>';
+                            setTimeout(() => window.location.reload(), 5000);
+                        }, 2000);
+                    } else if (action === 'stop') {
+                        clearInterval(window.dashboardRefreshInterval);
+                        setTimeout(() => {
+                            status.innerHTML = '<span style="color: #8b949e;">Flask stopped. Refresh page to reconnect.</span>';
+                        }, 2000);
+                    }
+                } else {
+                    status.innerHTML = `<span style="color: #f85149;">❌ ${data.message || 'Failed'}</span>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<span style="color: #f85149;">❌ ${error.message}</span>`;
+            }
+        }
+
+        async function toggleAutomations(currentlyEnabled) {
+            const status = document.getElementById('serviceStatus');
+            const action = currentlyEnabled ? 'disable' : 'enable';
+
+            if (!confirm(`${action === 'disable' ? 'Disable' : 'Enable'} all automations?\\n\\n${action === 'disable' ? 'Home automations will stop running but dashboard stays active.' : 'Home automations will resume normal operation.'}`)) {
+                return;
+            }
+
+            status.innerHTML = `<span style="color: #d29922;">⏳ ${action === 'disable' ? 'Disabling' : 'Enabling'} automations...</span>`;
+
+            try {
+                const response = await fetch('/api/automation-control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable: !currentlyEnabled })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    status.innerHTML = `<span style="color: #3fb950;">✓ Automations ${action === 'disable' ? 'disabled' : 'enabled'}</span>`;
+                    // Reload dashboard to show new status
+                    setTimeout(() => loadDashboard(), 1000);
+                } else {
+                    status.innerHTML = `<span style="color: #f85149;">❌ ${data.message || 'Failed'}</span>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<span style="color: #f85149;">❌ ${error.message}</span>`;
+            }
+        }
+
+        async function shutdownPi() {
+            const btn = document.getElementById('shutdownBtn');
+            const status = document.getElementById('serviceStatus');
+
+            if (!confirm('Shutdown the Raspberry Pi?\\n\\nThe system will power down. Wait for the LED to stop blinking before unplugging power.')) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Shutting down...';
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = '0.6';
+
+            try {
+                const response = await fetch('/api/shutdown', { method: 'POST' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    status.innerHTML = '<span style="color: #d29922;">⚠️ System shutting down<br>Wait for LED to stop blinking<br>Then safe to unplug power</span>';
+
+                    // Stop auto-refresh
+                    clearInterval(window.dashboardRefreshInterval);
+
+                    // Show countdown
+                    let seconds = 60;
+                    const countdown = setInterval(() => {
+                        status.innerHTML = `<span style="color: #d29922;">⚠️ Shutdown in progress (${seconds}s)<br>LED will stop blinking soon<br>Then safe to unplug</span>`;
+                        seconds--;
+                        if (seconds < 0) {
+                            clearInterval(countdown);
+                            status.innerHTML = '<span style="color: #3fb950;">✓ System halted<br>LED should be OFF<br>Safe to unplug power now</span>';
+                        }
+                    }, 1000);
+                } else {
+                    status.innerHTML = `<span style="color: #f85149;">❌ ${data.message || 'Shutdown failed'}</span>`;
+                    btn.disabled = false;
+                    btn.textContent = '🔌 Shutdown Pi';
+                    btn.style.cursor = 'pointer';
+                    btn.style.opacity = '1';
+                }
+            } catch (error) {
+                status.innerHTML = `<span style="color: #f85149;">❌ ${error.message}</span>`;
+                btn.disabled = false;
+                btn.textContent = '🔌 Shutdown Pi';
+                btn.style.cursor = 'pointer';
+                btn.style.opacity = '1';
+            }
+        }
+
+        // Load dashboard on page load
+        loadDashboard();
+
+        // Auto-refresh every 5 seconds
+        window.dashboardRefreshInterval = setInterval(loadDashboard, 5000);
+    </script>
+</body>
+</html>
+        """
+        return Response(html, mimetype='text/html')
+
+    @app.route('/pre-arrival', methods=['POST'])
+    @require_auth
+    def pre_arrival():
+        """Trigger pre-arrival automation (Stage 1: HVAC + outdoor lights)"""
+        logger.info("Received /pre-arrival request")
+        result, status_code = run_automation_script('pre_arrival.py')
+        return jsonify(result), status_code
+
+    @app.route('/leaving-home', methods=['POST'])
+    @require_auth
+    def leaving_home():
+        """Trigger leaving home automation"""
+        logger.info("Received /leaving-home request")
+        result, status_code = run_automation_script('leaving_home.py')
+        return jsonify(result), status_code
+
+    @app.route('/goodnight', methods=['POST'])
+    @require_auth
+    def goodnight():
+        """Trigger goodnight automation"""
+        logger.info("Received /goodnight request")
+        result, status_code = run_automation_script('goodnight.py')
+        return jsonify(result), status_code
+
+    @app.route('/im-home', methods=['POST'])
+    @require_auth
+    def im_home():
+        """Trigger I'm home automation"""
+        logger.info("Received /im-home request")
+        result, status_code = run_automation_script('im_home.py')
+        return jsonify(result), status_code
+
+    @app.route('/good-morning', methods=['POST'])
+    @require_auth
+    def good_morning():
+        """Trigger good morning automation"""
+        logger.info("Received /good-morning request")
+        result, status_code = run_automation_script('good_morning.py')
+        return jsonify(result), status_code
+
+    @app.route('/travel-time', methods=['GET', 'POST'])
+    @require_auth
+    def travel_time():
+        """
+        Get travel time to destination
+
+        Query params or POST body:
+            destination: Where to get travel time to (default: Milwaukee, WI)
+
+        Returns:
+            JSON with travel time information
+        """
+        logger.info("Received /travel-time request")
+
+        # Get destination from query params or POST body
+        if request.method == 'POST':
+            data = request.get_json() or {}
+            destination = data.get('destination', 'Milwaukee, WI')
+        else:
+            destination = request.args.get('destination', 'Milwaukee, WI')
+
+        # Run script synchronously to get results
+        script_path = os.path.join(config.AUTOMATIONS_DIR, 'travel_time.py')
+
+        try:
+            result = subprocess.run(
+                [sys.executable, script_path, destination],
+                capture_output=True,
+                text=True,
+                timeout=15
+            )
+
+            if result.returncode == 0:
+                # Parse JSON output from script
+                import json
+                output = json.loads(result.stdout)
+                logger.info(f"Travel time to {destination}: {output.get('duration_in_traffic_minutes')} mins")
+                return jsonify(output), 200
+            else:
+                logger.error(f"Script failed: {result.stderr}")
+                return jsonify({'error': result.stderr}), 500
+
+        except subprocess.TimeoutExpired:
+            logger.error("Travel time script timed out")
+            return jsonify({'error': 'Request timed out'}), 504
+        except Exception as e:
+            logger.error(f"Failed to get travel time: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/add-task', methods=['POST'])
+    @require_auth
+    def add_task():
+        """
+        Add a task via voice/iOS Shortcut
+
+        POST body:
+            task: Task text
+
+        Returns:

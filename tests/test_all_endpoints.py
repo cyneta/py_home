@@ -59,7 +59,7 @@ def test_status_endpoint(client):
 
 def test_pre_arrival_endpoint(client, mock_auth):
     """Test POST /pre-arrival triggers Stage 1 automation"""
-    with patch('server.routes.run_automation_script') as mock_run:
+    with patch('server.blueprints.webhooks.run_automation_script') as mock_run:
         mock_run.return_value = ({'status': 'success'}, 200)
 
         response = client.post('/pre-arrival')
@@ -69,7 +69,7 @@ def test_pre_arrival_endpoint(client, mock_auth):
 
 def test_im_home_endpoint(client, mock_auth):
     """Test POST /im-home triggers Stage 2 automation"""
-    with patch('server.routes.run_automation_script') as mock_run:
+    with patch('server.blueprints.webhooks.run_automation_script') as mock_run:
         mock_run.return_value = ({'status': 'success'}, 200)
 
         response = client.post('/im-home')
@@ -79,7 +79,7 @@ def test_im_home_endpoint(client, mock_auth):
 
 def test_leaving_home_endpoint(client, mock_auth):
     """Test POST /leaving-home triggers leaving automation"""
-    with patch('server.routes.run_automation_script') as mock_run:
+    with patch('server.blueprints.webhooks.run_automation_script') as mock_run:
         mock_run.return_value = ({'status': 'success'}, 200)
 
         response = client.post('/leaving-home')
@@ -89,7 +89,7 @@ def test_leaving_home_endpoint(client, mock_auth):
 
 def test_goodnight_endpoint(client, mock_auth):
     """Test POST /goodnight triggers goodnight automation"""
-    with patch('server.routes.run_automation_script') as mock_run:
+    with patch('server.blueprints.webhooks.run_automation_script') as mock_run:
         mock_run.return_value = ({'status': 'success'}, 200)
 
         response = client.post('/goodnight')
@@ -99,7 +99,7 @@ def test_goodnight_endpoint(client, mock_auth):
 
 def test_good_morning_endpoint(client, mock_auth):
     """Test POST /good-morning triggers morning automation"""
-    with patch('server.routes.run_automation_script') as mock_run:
+    with patch('server.blueprints.webhooks.run_automation_script') as mock_run:
         mock_run.return_value = ({'status': 'success'}, 200)
 
         response = client.post('/good-morning')
@@ -330,7 +330,7 @@ def test_travel_time_endpoint(client):
 
 def test_add_task_endpoint(client, mock_auth):
     """Test POST /add-task adds task"""
-    with patch('server.routes.run_automation_script') as mock_run:
+    with patch('server.blueprints.webhooks.run_automation_script') as mock_run:
         mock_run.return_value = ({'status': 'success'}, 200)
 
         response = client.post('/add-task',
