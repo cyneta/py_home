@@ -87,13 +87,13 @@ tapo:
   username: "${TAPO_USERNAME}"
   password: "${TAPO_PASSWORD}"
   outlets:
-    - name: "Livingroom Lamp"
+    - name: "LivingRoom Lamp"
       ip: "192.168.50.162"
-    - name: "Bedroom Left Lamp"
+    - name: "Master Left Lamp"
       ip: "192.168.50.93"
-    - name: "Bedroom Right Lamp"
+    - name: "Master Right Lamp"
       ip: "192.168.50.143"
-    - name: "Heater"
+    - name: "Master Heater"
       ip: "192.168.50.135"
 
 sensibo:

@@ -1,114 +1,115 @@
 # Backlog
 
-## High Priority - Core System
+Quick-scan task list for py_home. Pick what to work on next based on impact, effort, and current priorities.
 
-### Fix Notifications
-**Task:** Debug notification issues
-**Items:**
-- Get ntfy notifications working
-- Fix blank Shortcuts/Scriptable notifications
+---
 
-### Review Tapo Outlet Configuration
-**Task:** Review and update Tapo outlet names and assignments
-**Items:**
-- Review outlet naming conventions
-- Review master bedroom heater management on Tapo outlet
+## 🎯 Ready to Work
 
+Quick wins and high-value tasks ready to start.
 
-## Medium Priority - Device Integrations
+| Task | Impact | Effort | Notes |
+|------|--------|--------|-------|
+| **Fix 71 Pytest Warnings** | Low | 1-2h | Replace `return True` with `assert True` in tests |
+| **Grow Light Automation** | Medium | 1-2h | Config exists, needs time-based scheduler hook |
+| **Make Bedroom Heater Settable** | Low | 1h | Currently only on/off, add temp control if possible |
 
-### Integrate Alen Air Purifiers
-**Task:** Complete Tuya/Alen air purifier integration
-**Status:** Partial config exists in config.yaml, needs implementation
+---
 
-### Integrate Roborock Robot Vacuum
-**Task:** Add Roborock vacuum control and status to automation system
+## 🔨 Needs Planning
 
-### Set Up Grow Light Automation
-**Task:** Configure table light as grow light with time-based automation
+Larger tasks that need design/research before implementation.
 
+| Task | Complexity | Blocker | Next Step |
+|------|------------|---------|-----------|
+| **HomePod Environment Sensors** | Medium | No direct API | Create webhook endpoint, HomeKit automation setup |
+| **Alen Air Purifier Integration** | Medium | Partial config exists | Test Tuya API, verify device IDs work |
+| **Roborock Vacuum Integration** | Medium | Hardware needed? | Check if vacuum is available, test API |
+| **Backup System for Pi** | Medium | Need strategy | Design: rsync? git backup? cloud? |
+| **Audit Dry-Run Test System** | Medium | None | Review test patterns, verify isolation |
 
-## Medium Priority - Productivity Shortcuts
+---
 
-### YouTube Music Integration
-**Task:** Create shortcuts for playlists, favorites, playback control
+## 💡 Feature Ideas
 
-### Checkvist Integration
-**Task:** Add shortcuts for task management integration
+Nice-to-have features, low priority.
 
-### Siri Shortcuts for HomePod
-**Task:** Create Siri shortcuts for controlling HomePod speakers
+| Task | Value | Complexity | Notes |
+|------|-------|------------|-------|
+| **YouTube Music Integration** | Low | Medium | iOS shortcuts for playlists/control |
+| **Checkvist Integration** | Low | Low | Already has API config, needs shortcuts |
+| **HomePod Siri Shortcuts** | Low | Medium | Voice control for HomePod speakers |
+| **Extract Design Principles** | Medium | Low | Document patterns (already doing organically) |
 
+---
 
-## Low Priority - Technical Debt
+---
 
-### Audit and Understand Test Suite
-**Task:** Review test suite structure, coverage, and mocking patterns
-**Goal:** Better understand testing approach for future development
+## ✅ Recently Completed
 
-### Fix 71 Pytest Warnings - Test Return Values
-**Issue:** 71 warnings about test functions returning values instead of None
-**Pattern:** Tests use `return True` instead of `assert True`
-**Files Affected:**
-- tests/test_ai_handler.py (14 warnings)
-- tests/test_flask_endpoints.py
-- tests/test_monitoring.py
-- tests/test_state_management.py
-- tests/test_write_operations.py
-**Solution:** Replace `return <value>` with `assert <value>` in affected tests
+Last 5 completed items for context.
 
-### Extract py_home Design Principles
-**Task:** Review codebase and extract established design patterns into design/principles/
-**Context:** We discovered the "user control" principle during scheduler design. There are likely more implicit principles worth documenting.
-**Examples to document:**
-- Error handling: Continue on device failure, log but don't crash
-- Notifications: User-facing macro messages vs debug logs
-- State management: File-based state for persistence
-- Dry-run mode: All automations support --dry-run
-- Idempotency: Intent-based APIs (set_comfort_mode can be called repeatedly)
-- Configuration: config.yaml for behavior, .env for secrets
-- Weather integration: Graceful fallback on API failure
-- Component independence: One device failure doesn't break others
-**Output:** Multiple design/principles/*.md files documenting each principle with examples
-**Status:** user_control.md complete, others pending
+- **Config Schema Auto-Sync System** (2025-10-18)
+  - Auto-detects config.yaml changes after git pull
+  - Merges new keys, removes obsolete, preserves overrides
+  - Git hook + installer + comprehensive docs
 
-## Completed
-- ✅ HVAC redesign (Phases 1-5)
-- ✅ Remove deprecated night_mode flag system
-- ✅ Update all tests for new architecture
-- ✅ Implement Tapo get_all_status() method
-- ✅ Add runtime state files to .gitignore
-- ✅ Remove deprecated backward compatibility methods
-- ✅ Push all commits to origin/main
-- ✅ Fix test isolation issue - test_leaving_home_calls_update_presence_state
-- ✅ Achieve 100% test pass rate (202 passed, 0 skipped)
-- ✅ Add filtering to recent log viewer (log level, automation type, keyword search)
-- ✅ Implement component timeout pattern (Phases 1-4)
-  - Created AsyncRunner helper for async operations with timeouts
-  - Added timeouts to all device components (Tapo, Nest, Sensibo)
-  - Made timeouts configurable via config.yaml
-  - Optimized Tapo queries to run in parallel (4.6x speedup)
-  - Dashboard now loads in ~5 seconds (was 20-25 seconds)
-- ✅ Fix ECO mode dashboard display
-  - Changed "ECO°F" to "ECO (62-80°F)" format showing actual temperature range
-  - Clarified that ECO bounds must be set in Google Home app (API read-only)
-  - Updated config comments to remove misleading eco_low/eco_high values
-  - Updated code documentation to reflect API limitations
-- ✅ Review TempStick (Outdoor Sensor) dashboard panel
-  - Improved title clarity: "TempStick" → "Outdoor Sensor"
-  - Optimized field order: Temperature → Humidity → Battery → Sensor Status
-  - Enhanced information hierarchy with battery color-coding
-- ✅ Make weather-aware temperature settings configurable
-  - Added temperatures.weather_aware section to config.yaml
-  - Cold threshold (40°F), cold target (72°F), hot threshold (75°F), hot target (68°F)
-  - Updated lib/transitions.py to read from config instead of hardcoded values
-  - All tests pass (225 passed, including 6 weather-aware tests)
+- **Notification Philosophy Cleanup** (2025-10-18)
+  - Established "emergency-only" notification principle
+  - Removed duplicate docs, single source in design/principles/
 
-## Task Inbox
-- Review the config
-- Update documentation (README.md, GUIDE.md) with new intent-based API examples and architecture
-- Devise backup system for pi
-- Evolve AI Aware requests
-- Audit the dry run test system. does it produce valid tests? Is it really dry run?
-- Make bedroom heater settable
+- **Weather-Aware Temperature Settings** (Recent)
+  - Configurable cold/hot thresholds and targets
+  - Morning temperature adjusts based on outdoor weather
 
+- **Component Timeout Pattern** (Recent)
+  - 4.6x dashboard speedup (5sec vs 20-25sec)
+  - Parallel Tapo queries, configurable timeouts
+
+- **100% Test Pass Rate** (Recent)
+  - 225 tests passing, 0 skipped
+  - Fixed isolation issues
+
+---
+
+## 📊 View by Category
+
+### Hardware/Devices
+- Review Tapo Outlet Config (ready)
+- HomePod Environment Sensors (needs planning)
+- Alen Air Purifier Integration (needs planning)
+- Roborock Vacuum Integration (needs planning)
+- Grow Light Automation (ready)
+- Make Bedroom Heater Settable (ready)
+
+### Code Quality
+- Fix 71 Pytest Warnings (ready)
+- Audit Dry-Run Test System (needs planning)
+- Extract Design Principles (feature idea)
+
+### System/Ops
+- Backup System for Pi (needs planning)
+
+### Integrations
+- YouTube Music (feature idea)
+- Checkvist (feature idea)
+- HomePod Shortcuts (feature idea)
+
+---
+
+## 🎲 Picking What to Do Next
+
+**Quick win (< 2 hours)?**
+→ Fix pytest warnings, review Tapo config, or grow light automation
+
+**Want to add new hardware?**
+→ Check if Alen/Roborock are accessible, then plan integration
+
+**Improve system reliability?**
+→ Design Pi backup system or audit dry-run tests
+
+**Low energy, easy task?**
+→ Extract design principles (document existing patterns)
+
+**Want to learn something new?**
+→ Checkvist or YouTube Music API integration

@@ -41,7 +41,7 @@ def main():
         lights_turned_on = []
 
         # Always turn on living room lamp
-        livingroom = get_outlet_by_name("Livingroom Lamp")
+        livingroom = get_outlet_by_name("LivingRoom Lamp")
         if livingroom:
             api_start = time.time()
             turn_on(livingroom['ip'])
@@ -55,7 +55,7 @@ def main():
             kvlog(logger, logging.INFO, automation='arrival_lights', condition='after_dark',
                   hour=hour, bedroom_lights='enabled')
 
-            bedroom_right = get_outlet_by_name("Bedroom Right Lamp")
+            bedroom_right = get_outlet_by_name("Master Right Lamp")
             if bedroom_right:
                 api_start = time.time()
                 turn_on(bedroom_right['ip'])
@@ -64,7 +64,7 @@ def main():
                 kvlog(logger, logging.NOTICE, automation='arrival_lights', device='bedroom_right_lamp',
                       action='turn_on', result='ok', duration_ms=duration_ms)
 
-            bedroom_left = get_outlet_by_name("Bedroom Left Lamp")
+            bedroom_left = get_outlet_by_name("Master Left Lamp")
             if bedroom_left:
                 api_start = time.time()
                 turn_on(bedroom_left['ip'])

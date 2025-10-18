@@ -82,26 +82,17 @@ send_emergency("CRITICAL: Water detected in basement!")
 
 ---
 
-## Current Alert Uses
+## Notification Philosophy
 
-py_home currently sends notifications for:
+**py_home sends alerts for emergencies and errors only** - not for routine events.
 
-### Temperature Monitoring (tempstick_monitor.py)
-- 🔥 **HIGH**: Pipe freeze risk (< 50°F)
-- 🔥 **HIGH**: Very high humidity (> 70%, potential leak)
-- ⚠️ **NORMAL**: Cold warning (< 55°F)
-- ⚠️ **NORMAL**: High humidity (> 65%)
-- ⚠️ **NORMAL**: Sensor offline
-- ⚠️ **NORMAL**: Battery low (< 20%)
+**Quick summary:**
+- ✅ **Send notifications for:** Emergency conditions (pipe freeze, high humidity), equipment failures (sensor offline, battery low), automation errors
+- ❌ **Don't send for:** Routine arrivals/departures, scheduled tasks completing normally, status updates, debug info
 
-### Home Automation
-- ✅ Leaving home automation complete
-- ✅ Goodnight automation complete
-- ✅ Welcome home automation complete
-- ✅ Morning routine complete
+**Why?** You already know when routine events happen. Notifications should signal exceptional conditions requiring attention.
 
-### Traffic Alerts
-- 🚗 I-80 construction/delays detected
+For complete philosophy, implementation patterns, and code examples, see [design/principles/notifications.md](../design/principles/notifications.md)
 
 ---
 

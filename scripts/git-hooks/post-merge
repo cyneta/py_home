@@ -1,0 +1,25 @@
+#!/bin/bash
+# Git post-merge hook
+# Runs automatically after 'git pull' or 'git merge' completes successfully
+
+# Check if config.yaml was modified in this merge
+if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -q "^config/config.yaml$"; then
+    echo ""
+    echo "═══════════════════════════════════════════════════════════"
+    echo "  ⚙️  config.yaml was updated in this merge"
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+    echo "Running config sync to check for schema changes..."
+    echo ""
+
+    # Run sync script in dry-run mode to preview changes
+    python3 scripts/sync_local_config.py --dry-run
+
+    # Check if there are changes to sync
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "To apply these changes, run:"
+        echo "  python3 scripts/sync_local_config.py"
+        echo ""
+    fi
+fi

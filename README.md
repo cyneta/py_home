@@ -304,7 +304,10 @@ nano config/config.yaml
 
 ### Configuration Files
 - **config.yaml** - Device IPs, thresholds, locations (committed to git)
+- **config.local.yaml** - Machine-specific overrides (gitignored, optional)
 - **.env** - API keys, credentials (gitignored, never committed)
+
+**Config sync:** After `git pull`, run `python3 scripts/sync_local_config.py` to sync schema changes. See [dev/CONFIG_SYNC_GUIDE.md](dev/CONFIG_SYNC_GUIDE.md).
 
 See component READMEs for credential setup.
 

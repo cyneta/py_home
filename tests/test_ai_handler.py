@@ -172,7 +172,7 @@ def test_parse_with_markdown_response():
         mock_response = {
             "type": "device",
             "action": "tapo.turn_off",
-            "params": {"outlet_name": "Heater"},
+            "params": {"outlet_name": "Master Heater"},
             "reasoning": "User wants to turn off heater"
         }
 
@@ -430,7 +430,7 @@ def test_tapo_turn_off():
         parsed_command = {
             "type": "device",
             "action": "tapo.turn_off",
-            "params": {"outlet_name": "Heater"},
+            "params": {"outlet_name": "Master Heater"},
             "reasoning": "Turn off heater"
         }
 
@@ -443,7 +443,7 @@ def test_tapo_turn_off():
 
         assert result['status'] == 'success', f"Expected success, got {result['status']}"
         assert 'heater' in result['message'].lower()
-        mock_tapo_instance.turn_off.assert_called_once_with("Heater")
+        mock_tapo_instance.turn_off.assert_called_once_with("Master Heater")
 
         print(f"{GREEN}✓{RESET} Tapo turn off command test passed")
         return True

@@ -8,7 +8,7 @@ Stage 1 (Pre-Arrival) runs when crossing geofence boundary - see pre_arrival.py
 
 Actions:
 1. Turn on indoor lights (living room + bedroom if evening)
-2. Send welcome notification with action summary
+2. Send notification only on errors (no routine notifications)
 
 Stage 1 Fallback:
 - If pre-arrival didn't run (WiFi-only arrival), run Stage 1 first
@@ -101,13 +101,13 @@ def run():
         api_start = time.time()
 
         # Always turn on living room (welcome light)
-        tapo.turn_on("Livingroom Lamp")
+        tapo.turn_on("LivingRoom Lamp")
         lamps_on = ["Living room"]
 
         # Turn on bedroom lamps only if evening (after 6pm)
         if hour >= 18:
-            tapo.turn_on("Bedroom Left Lamp")
-            tapo.turn_on("Bedroom Right Lamp")
+            tapo.turn_on("Master Left Lamp")
+            tapo.turn_on("Master Right Lamp")
             lamps_on.extend(["Bedroom left", "Bedroom right"])
 
         duration_ms = int((time.time() - api_start) * 1000)
@@ -122,23 +122,17 @@ def run():
         errors.append(f"Lights: {e}")
         actions.append(f"Lights failed: {str(e)[:30]}")
 
-    # 2. Send notification with action summary
-    try:
-        if not DRY_RUN:
+    # 2. Send notification only on errors
+    # Design principle: Notifications are for emergencies/errors only (see design/principles/notifications.md)
+    if errors and not DRY_RUN:
+        try:
             from lib.notifications import send_automation_summary
-
-            title = "🏡 Welcome Home!"
-            priority = 1 if errors else 0  # High priority if errors
-
-            send_automation_summary(title, actions, priority=priority)
-
-            kvlog(logger, logging.INFO, automation='im_home', action='notification', result='sent')
-        else:
-            kvlog(logger, logging.DEBUG, automation='im_home', action='notification', result='skipped_dry_run')
-    except Exception as e:
-        kvlog(logger, logging.ERROR, automation='im_home', action='notification',
-              error_type=type(e).__name__, error_msg=str(e))
-        errors.append(f"Notification: {e}")
+            send_automation_summary("⚠️ Arrival Error", actions, priority=1)
+            kvlog(logger, logging.INFO, automation='im_home', action='notification', result='sent', reason='errors')
+        except Exception as e:
+            # Don't add to errors - notification failure isn't critical
+            kvlog(logger, logging.ERROR, automation='im_home', action='notification',
+                  error_type=type(e).__name__, error_msg=str(e))
 
     # Complete
     total_duration_ms = int((time.time() - start_time) * 1000)

@@ -103,7 +103,7 @@ def run():
             api_start = time.time()
             # Turn on living room lamp as pathway light
             # (Later we'll add actual outdoor lights when hardware available)
-            tapo.turn_on("Livingroom Lamp")
+            tapo.turn_on("LivingRoom Lamp")
             duration_ms = int((time.time() - api_start) * 1000)
 
             kvlog(logger, logging.NOTICE, automation='pre_arrival', device='tapo',
