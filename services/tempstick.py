@@ -114,11 +114,17 @@ class TempStickAPI:
             logger.warning(f"Failed to parse timestamp '{last_checkin_str}': {e}")
             last_checkin = None
 
-        # Calculate if online (checked in within last 30 minutes)
-        is_online = False
+        # Use TempStick API's offline flag (0 = online, 1 = offline)
+        # The API knows better than we do when a sensor is truly offline
+        # (sensors may check in less frequently than 30 min under normal operation)
+        offline_flag = int(raw_data.get('offline', 0))
+        is_online = (offline_flag == 0)
+
+        # Calculate time since last check-in for logging/debugging
+        time_since_checkin_minutes = None
         if last_checkin:
             time_since_checkin = datetime.now(timezone.utc) - last_checkin
-            is_online = time_since_checkin.total_seconds() < 1800  # 30 minutes
+            time_since_checkin_minutes = time_since_checkin.total_seconds() / 60
 
         # Convert temperature to Fahrenheit
         temp_c = float(raw_data['last_temp'])
@@ -139,10 +145,21 @@ class TempStickAPI:
             'offline_flag': int(raw_data.get('offline', 0))
         }
 
-        kvlog(logger, logging.INFO, api='tempstick', action='get_sensor_data',
-              sensor_id=data['sensor_id'], temp_f=data['temperature_f'],
-              humidity=data['humidity'], battery_pct=data['battery_pct'],
-              is_online=is_online)
+        # Build log with optional time_since_checkin
+        log_data = {
+            'api': 'tempstick',
+            'action': 'get_sensor_data',
+            'sensor_id': data['sensor_id'],
+            'temp_f': data['temperature_f'],
+            'humidity': data['humidity'],
+            'battery_pct': data['battery_pct'],
+            'is_online': is_online,
+            'offline_flag': offline_flag
+        }
+        if time_since_checkin_minutes is not None:
+            log_data['minutes_since_checkin'] = round(time_since_checkin_minutes, 1)
+
+        kvlog(logger, logging.INFO, **log_data)
 
         return data
 
