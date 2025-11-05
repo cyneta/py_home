@@ -26,11 +26,10 @@ from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
-# Check for dry-run mode (priority: flag > env var > config > default)
+# Check for dry-run mode (priority: CLI flag > config file)
 from lib.config import get
 DRY_RUN = (
     '--dry-run' in sys.argv or
-    os.environ.get('DRY_RUN', '').lower() == 'true' or
     get('automations.dry_run', False)
 )
 
@@ -39,16 +38,6 @@ def run():
     """Execute goodnight automation"""
     start_time = time.time()
     kvlog(logger, logging.NOTICE, automation='goodnight', event='start', dry_run=DRY_RUN)
-
-    # Check if automations are enabled
-    from lib.automation_control import are_automations_enabled
-    if not are_automations_enabled():
-        kvlog(logger, logging.INFO, automation='goodnight', event='skipped', reason='automations_disabled')
-        return {
-            'action': 'goodnight',
-            'status': 'skipped',
-            'reason': 'Automations disabled via master switch'
-        }
 
     # Call sleep transition - handles all device control and notifications
     from lib.transitions import transition_to_sleep

@@ -202,46 +202,22 @@ def test_api_presence(client):
 
 
 def test_api_automation_control_get(client):
-    """Test GET /api/automation-control returns current state"""
-    import tempfile
-    import os
-
-    # Ensure the .automation_disabled file doesn't exist (automations enabled)
-    temp_dir = tempfile.mkdtemp()
-    disable_file = os.path.join(temp_dir, '.automation_disabled')
-
-    try:
-        with patch('server.routes.os.path.join', return_value=disable_file):
-            response = client.get('/api/automation-control')
-            assert response.status_code == 200
-            data = json.loads(response.data)
-            assert 'automations_enabled' in data
-    finally:
-        if os.path.exists(temp_dir):
-            import shutil
-            shutil.rmtree(temp_dir)
+    """Test GET /api/automation-control returns dry-run status"""
+    with patch('lib.config.get', return_value=True):
+        response = client.get('/api/automation-control')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert 'dry_run' in data
+        assert data['dry_run'] == True
 
 
 def test_api_automation_control_post(client, mock_auth):
-    """Test POST /api/automation-control toggles automation state"""
-    import tempfile
-    import os
-
-    temp_dir = tempfile.mkdtemp()
-    disable_file = os.path.join(temp_dir, '.automation_disabled')
-
-    try:
-        with patch('server.routes.os.path.join', return_value=disable_file):
-            # Test disabling automations
-            response = client.post('/api/automation-control',
-                                  json={'enable': False})
-            assert response.status_code == 200
-            data = json.loads(response.data)
-            assert data['automations_enabled'] == False
-    finally:
-        if os.path.exists(temp_dir):
-            import shutil
-            shutil.rmtree(temp_dir)
+    """Test POST /api/automation-control rejects changes (read-only)"""
+    response = client.post('/api/automation-control',
+                          json={'dry_run': False})
+    assert response.status_code == 403
+    data = json.loads(response.data)
+    assert 'error' in data
 
 
 def test_api_night_mode_get(client):

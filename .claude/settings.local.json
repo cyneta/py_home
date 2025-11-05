@@ -28,7 +28,17 @@
       "Read(//c/**)",
       "Bash(git restore:*)",
       "Bash(find:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(python3 scripts/sync_local_config.py --force)",
+      "Bash(python3 scripts/sync_local_config.py --help)",
+      "Bash(while read f)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(wc -l \"$f\")",
+      "Bash(head -5 \"$f\")",
+      "Bash(done)",
+      "Read(//tmp/**)",
+      "WebFetch(domain:www.amazon.com)",
+      "Bash(DRY_RUN=false timeout 5 python automations/leaving_home.py)"
     ],
     "deny": [],
     "ask": []

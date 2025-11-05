@@ -39,27 +39,15 @@ def test_pre_arrival_execution():
     """Test pre_arrival automation executes Stage 1 actions"""
     with patch('components.nest.NestAPI') as mock_nest:
         with patch('components.tapo.TapoAPI') as mock_tapo:
-            with patch('lib.automation_control.are_automations_enabled', return_value=True):
-                with patch('automations.pre_arrival.is_dark', return_value=True):
-                    with patch('automations.pre_arrival.is_night_mode', return_value=False):
-                        from automations.pre_arrival import run
+            with patch('automations.pre_arrival.is_dark', return_value=True):
+                with patch('automations.pre_arrival.is_night_mode', return_value=False):
+                    from automations.pre_arrival import run
 
-                        result = run()
+                    result = run()
 
-                        assert result['action'] == 'pre_arrival'
-                        assert result['stage'] == 1
-                        assert result['status'] in ['success', 'partial']
-
-
-def test_pre_arrival_skips_when_disabled():
-    """Test pre_arrival skips when automations disabled"""
-    with patch('lib.automation_control.are_automations_enabled', return_value=False):
-        from automations.pre_arrival import run
-
-        result = run()
-
-        assert result['status'] == 'skipped'
-        assert result['reason'] == 'Automations disabled via master switch'
+                    assert result['action'] == 'pre_arrival'
+                    assert result['stage'] == 1
+                    assert result['status'] in ['success', 'partial']
 
 
 # NOTE: pre_arrival presence state update is tested via integration tests
@@ -243,38 +231,36 @@ def test_two_stage_arrival_integration():
     """Test complete two-stage arrival flow"""
     with patch('components.nest.NestAPI'):
         with patch('components.tapo.TapoAPI'):
-            with patch('lib.automation_control.are_automations_enabled', return_value=True):
-                with patch('lib.notifications.send_automation_summary'):
-                    # Stage 1: Pre-arrival
-                    from automations.pre_arrival import run as run_stage1
-                    result1 = run_stage1()
+            with patch('lib.notifications.send_automation_summary'):
+                # Stage 1: Pre-arrival
+                from automations.pre_arrival import run as run_stage1
+                result1 = run_stage1()
 
-                    assert result1['action'] == 'pre_arrival'
-                    assert result1['stage'] == 1
+                assert result1['action'] == 'pre_arrival'
+                assert result1['stage'] == 1
 
-                    # Stage 2: Physical arrival (should detect Stage 1 already ran)
-                    with patch('automations.im_home.get_presence_state', return_value='home'):
-                        from automations.im_home import run as run_stage2
-                        result2 = run_stage2()
+                # Stage 2: Physical arrival (should detect Stage 1 already ran)
+                with patch('automations.im_home.get_presence_state', return_value='home'):
+                    from automations.im_home import run as run_stage2
+                    result2 = run_stage2()
 
-                        assert result2['action'] == 'im_home'
-                        assert result2['stage'] == 2
+                    assert result2['action'] == 'im_home'
+                    assert result2['stage'] == 2
 
 
 def test_wifi_only_arrival_fallback():
     """Test WiFi-only arrival triggers both stages"""
     with patch('components.nest.NestAPI'):
         with patch('components.tapo.TapoAPI'):
-            with patch('lib.automation_control.are_automations_enabled', return_value=True):
-                with patch('lib.notifications.send_automation_summary'):
-                    # WiFi connects but presence_state != 'home' (geofence didn't trigger)
-                    with patch('automations.im_home.get_presence_state', return_value='away'):
-                        from automations.im_home import run
+            with patch('lib.notifications.send_automation_summary'):
+                # WiFi connects but presence_state != 'home' (geofence didn't trigger)
+                with patch('automations.im_home.get_presence_state', return_value='away'):
+                    from automations.im_home import run
 
-                        result = run()
+                    result = run()
 
-                        # Should have run both Stage 1 and Stage 2
-                        assert result['action'] == 'im_home'
-                        assert result['stage'] == 2
-                        # Actions list should include both stages
-                        assert len(result.get('actions', [])) > 1
+                    # Should have run both Stage 1 and Stage 2
+                    assert result['action'] == 'im_home'
+                    assert result['stage'] == 2
+                    # Actions list should include both stages
+                    assert len(result.get('actions', [])) > 1

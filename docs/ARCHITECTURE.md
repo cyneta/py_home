@@ -190,7 +190,6 @@ GET  /api/automation-control
    (Returns 200 OK immediately)
    ↓
 5. leaving_home.py executes:
-   - Check if automations enabled (.automation_disabled file)
    - Set Nest to away mode (62°F)
    - Turn off all Tapo outlets
    - Turn off Sensibo AC
@@ -304,7 +303,6 @@ Total arrival time: ~60-65 seconds (geofence to notification)
 **State Files:**
 - `.presence_state` - Current location (home/away)
 - `.night_mode` - Night mode enabled (created by automations)
-- `.automation_disabled` - Master disable flag
 - `.presence_fail_count` - Consecutive ping failures
 - `.alert_state/` - Notification cooldown tracking
 
@@ -319,9 +317,6 @@ home
 
 # .night_mode
 (file exists = night mode on)
-
-# .automation_disabled
-Disabled at 1697234567.89
 ```
 
 ---
@@ -596,9 +591,10 @@ sudo systemctl restart py_home
 
 ### Automation Not Running
 
-1. Check master disable flag: `ls -la .automation_disabled`
-2. Check automation logs: `tail -f data/logs/[automation].log`
+1. Check dry-run mode: `grep 'dry_run' config/config.yaml` (should be `false` for production)
+2. Check automation logs: `tail -f data/logs/[automation].log` (look for `[DRY-RUN]` messages)
 3. Run manually: `python automations/[script].py`
+4. Override config: `python automations/[script].py --dry-run` (force dry-run for testing)
 
 ### iOS Shortcuts Not Working
 

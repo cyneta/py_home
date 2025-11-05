@@ -28,11 +28,10 @@ from lib.logging_config import kvlog
 
 logger = logging.getLogger(__name__)
 
-# Check for dry-run mode (priority: flag > env var > config > default)
+# Check for dry-run mode (priority: CLI flag > config file)
 from lib.config import get
 DRY_RUN = (
     '--dry-run' in sys.argv or
-    os.environ.get('DRY_RUN', '').lower() == 'true' or
     get('automations.dry_run', False)
 )
 
@@ -70,16 +69,6 @@ def run():
     """Execute pre-arrival automation (Stage 1)"""
     start_time = time.time()
     kvlog(logger, logging.NOTICE, automation='pre_arrival', event='start', stage=1, dry_run=DRY_RUN)
-
-    # Check if automations are enabled
-    from lib.automation_control import are_automations_enabled
-    if not are_automations_enabled():
-        kvlog(logger, logging.INFO, automation='pre_arrival', event='skipped', reason='automations_disabled')
-        return {
-            'action': 'pre_arrival',
-            'status': 'skipped',
-            'reason': 'Automations disabled via master switch'
-        }
 
     # Call home transition - handles all HVAC control
     # Pass send_notification=False since Stage 2 (im_home.py) will send the welcome notification

@@ -118,16 +118,16 @@ def api_system_status():
         # Note: presence_monitor health check removed (deprecated component)
         # iOS geofencing via /update-location is now used for presence detection
 
-        # Check automation disable flag
-        disable_file = os.path.join(os.path.dirname(__file__), '..', '..', '.automation_disabled')
-        automations_enabled = not os.path.exists(disable_file)
+        # Check dry-run mode
+        from lib.config import get
+        dry_run = get('automations.dry_run', False)
 
         return jsonify({
             'status': health_status,
             'flask_uptime': uptime,
             'flask_uptime_seconds': int(uptime_seconds),
             'night_mode': night_mode,
-            'automations_enabled': automations_enabled,
+            'dry_run': dry_run,
             'services': services,
             'platform': platform.system()
         }), 200
@@ -139,44 +139,23 @@ def api_system_status():
 
 @api_system_bp.route('/api/automation-control', methods=['GET', 'POST'])
 def api_automation_control():
-    """Enable/disable all automations (master switch)"""
-    disable_file = os.path.join(os.path.dirname(__file__), '..', '..', '.automation_disabled')
+    """Get/set dry-run mode for automations"""
+    from lib.config import get
 
     if request.method == 'GET':
-        # Get current status
-        enabled = not os.path.exists(disable_file)
+        # Get current dry-run status
+        dry_run = get('automations.dry_run', False)
         return jsonify({
-            'automations_enabled': enabled,
-            'status': 'enabled' if enabled else 'disabled'
+            'dry_run': dry_run,
+            'status': 'dry_run' if dry_run else 'active',
+            'message': 'Automations log actions but do not execute' if dry_run else 'Automations actively controlling devices'
         }), 200
 
     elif request.method == 'POST':
-        # Set status
-        data = request.get_json() or {}
-        enable = data.get('enable', True)
-
-        try:
-            if enable:
-                # Enable automations (remove disable file)
-                if os.path.exists(disable_file):
-                    os.remove(disable_file)
-                kvlog(logger, logging.NOTICE, event='automations_enabled', user='api')
-                return jsonify({
-                    'automations_enabled': True,
-                    'status': 'enabled',
-                    'message': 'Automations enabled'
-                }), 200
-            else:
-                # Disable automations (create disable file)
-                with open(disable_file, 'w') as f:
-                    f.write(f"Disabled at {time.time()}\n")
-                kvlog(logger, logging.NOTICE, event='automations_disabled', user='api')
-                return jsonify({
-                    'automations_enabled': False,
-                    'status': 'disabled',
-                    'message': 'Automations disabled'
-                }), 200
-
-        except Exception as e:
-            logger.error(f"Failed to change automation status: {e}")
-            return jsonify({'error': str(e)}), 500
+        # Cannot set dry-run via API - must edit config.yaml
+        # This is intentional to prevent accidental production changes
+        return jsonify({
+            'error': 'Cannot change dry-run mode via API',
+            'message': 'Edit config/config.yaml and set automations.dry_run, then restart service',
+            'current_dry_run': get('automations.dry_run', False)
+        }), 403
