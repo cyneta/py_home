@@ -238,7 +238,7 @@ tail -f ~/py_home/data/logs/im_home.log
 
 **Prerequisites:**
 - iOS automation configured for "Arrive" at home
-- home-geofence.js deployed to iCloud Drive (already done)
+- ph_home-geofence.js deployed to iCloud Drive (already done)
 - Currently away from home (>200m)
 
 ### Steps
@@ -254,7 +254,7 @@ tail -f ~/py_home/data/logs/im_home.log
 **Stage 1: Pre-Arrival (Geofence)**
 ```
 5. Return home, approach within 173m boundary
-6. iOS automation triggers home-geofence.js
+6. iOS automation triggers ph_home-geofence.js
 7. Wait ~5 seconds
 8. Check iPhone for Scriptable notification (if configured)
 9. **NO "Welcome Home" notification yet** (correct behavior)
@@ -654,7 +654,7 @@ grep "event=start" ~/py_home/data/logs/im_home.log | tail -1
 
 **Adjust if needed:**
 ```javascript
-// In home-geofence.js
+// In ph_home-geofence.js
 homeRadius: 150,  // Reduce from 200 to 150 or 100
 ```
 
@@ -829,7 +829,7 @@ curl -X POST http://raspberrypi.local:5000/im-home
 **Prerequisites:**
 - Tailscale installed on Pi, laptop, iPhone (completed 2025-10-13)
 - Pi Tailscale IP: `100.107.121.6`
-- home-geofence.js updated with Tailscale IP
+- ph_home-geofence.js updated with Tailscale IP
 
 ### Steps
 
@@ -886,7 +886,7 @@ Calling: http://100.107.121.6:5000/pre-arrival  ← Using Tailscale IP
 1. Check Tailscale running on iPhone (VPN icon in status bar)
 2. Verify Pi shows "online" in Tailscale app
 3. Test Pi is reachable: `tailscale ping raspberrypi` (from laptop)
-4. Verify home-geofence.js has correct IP (`100.107.121.6`)
+4. Verify ph_home-geofence.js has correct IP (`100.107.121.6`)
 
 ### Real-World Validation
 

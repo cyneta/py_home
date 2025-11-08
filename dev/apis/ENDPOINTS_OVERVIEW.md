@@ -25,7 +25,7 @@
 ### 🟢 `GET /status`
 **Purpose:** Basic health check
 **Used By:**
-- home-geofence.js (network detection)
+- ph_home-geofence.js (network detection)
 - Monitoring scripts
 **Returns:** `{"status": "ok"}`
 
@@ -101,7 +101,7 @@
 ### 🟢 `POST /pre-arrival`
 **Purpose:** Trigger pre-arrival automation (Stage 1)
 **Used By:**
-- ✅ iOS Geofencing (home-geofence.js) - When crossing 173m boundary
+- ✅ iOS Geofencing (ph_home-geofence.js) - When crossing 173m boundary
 **Triggers:** `automations/pre_arrival.py`
 **Actions:**
 - Set Nest to comfort temp (70°F) - needs 5-15 min lead time
@@ -135,7 +135,7 @@
 ### 🟢 `POST /leaving-home`
 **Purpose:** Trigger leaving home automation
 **Used By:**
-- ✅ iOS Geofencing (home-geofence.js) - When leaving 173m boundary
+- ✅ iOS Geofencing (ph_home-geofence.js) - When leaving 173m boundary
 - 🔵 Manual Siri command
 **Triggers:** `automations/leaving_home.py`
 **Actions:**
@@ -194,7 +194,7 @@
 ### 🔴 `POST /update-location`
 **Purpose:** Update GPS location from iOS Shortcuts
 **Used By:** OLD iOS Shortcuts (pre-Scriptable)
-**Status:** **DEPRECATED** - Replaced by home-geofence.js
+**Status:** **DEPRECATED** - Replaced by ph_home-geofence.js
 **Should be:** Removed after Scriptable proven stable
 **Writes to:** `data/location.json`
 
@@ -279,7 +279,7 @@ Every 5 seconds:
 - 🔄 `POST /im-home` - Now checks if pre-arrival ran, includes fallback for WiFi-only arrivals
 
 ### No Longer Exercised (DEPRECATED)
-- ❌ `POST /update-location` - Old iOS Shortcuts, replaced by home-geofence.js
+- ❌ `POST /update-location` - Old iOS Shortcuts, replaced by ph_home-geofence.js
 - ❌ `GET /location` - Old GPS data, replaced by `/api/presence`
 
 ### No Longer Exercised (DISABLED)
@@ -362,5 +362,5 @@ curl http://raspberrypi.local:5000/api/nest/status
 
 - Endpoint definitions: `server/routes.py`
 - Automation scripts: `automations/*.py`
-- iOS geofence script: `scripts/ios/home-geofence.js`
+- iOS geofence script: `scripts/ios/ph_home-geofence.js`
 - WiFi monitor: `automations/wifi_event_monitor.py`

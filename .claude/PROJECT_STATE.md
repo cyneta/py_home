@@ -405,11 +405,11 @@ curl -X POST http://localhost:5000/api/goodnight
 
 ### iOS Scriptable Integration
 
-**Geofence Script**: `scripts/ios/home-geofence.js`
+**Geofence Script**: `scripts/ios/ph_home-geofence.js`
 
 **Setup**:
 1. Install Scriptable app on iPhone
-2. Copy `home-geofence.js` to Scriptable
+2. Copy `ph_home-geofence.js` to Scriptable
 3. Configure automation in iOS Shortcuts:
    - Trigger: Location (entering/exiting home)
    - Action: Run Scriptable → home-geofence

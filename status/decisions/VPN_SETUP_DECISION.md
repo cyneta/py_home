@@ -11,7 +11,7 @@
 **Works Now:**
 - ✅ iOS Scriptable geofencing with offline queueing
 - ✅ Local network access via `raspberrypi.local:5000`
-- ✅ Network detection in home-geofence.js (lines 62-72, 150)
+- ✅ Network detection in ph_home-geofence.js (lines 62-72, 150)
 
 **Problem:**
 - ❌ Cannot access Pi endpoints when away from home
@@ -21,7 +21,7 @@
 
 **Current Code Already Supports VPN:**
 ```javascript
-// home-geofence.js line 74-76
+// ph_home-geofence.js line 74-76
 async function callPiEndpoint(endpoint, isHomeNetwork) {
   const baseUrl = isHomeNetwork ? config.piLocal : config.piVPN;
   const url = `${baseUrl}${endpoint}`;
@@ -173,7 +173,7 @@ sudo tailscale up
 2. Install on Pi (5 min)
 3. Install on Windows laptop (5 min)
 4. Install on iPhone (5 min)
-5. Update home-geofence.js with Tailscale IP (2 min)
+5. Update ph_home-geofence.js with Tailscale IP (2 min)
 6. Test connection (5 min)
 
 **No Configuration Files Needed**
@@ -389,7 +389,7 @@ Use Tailscale for easy setup and management, but run your own relay servers for 
 1. **Time Value:** 15 minutes vs 4 hours - spend time on features, not VPN config
 2. **Reliability:** Works everywhere (CGNAT, cellular, public WiFi)
 3. **Maintenance:** Zero ongoing maintenance
-4. **home-geofence.js Already Designed for It:** Network detection, automatic fallback
+4. **ph_home-geofence.js Already Designed for It:** Network detection, automatic fallback
 5. **Not Security-Critical:** Home automation, not banking or medical records
 6. **External APIs Already Cloud-Based:** Nest/Sensibo already send data to cloud
 7. **Proven Track Record:** Used by developers worldwide
@@ -455,7 +455,7 @@ curl http://100.64.0.2:5000/status
 # Should return: {"status": "ok"}
 ```
 
-**Step 5: Update home-geofence.js (2 min)**
+**Step 5: Update ph_home-geofence.js (2 min)**
 ```javascript
 // Update line 7 with actual Tailscale IP
 piVPN: "http://100.64.0.2:5000",  // ← Replace with your Pi's Tailscale IP
@@ -465,7 +465,7 @@ piVPN: "http://100.64.0.2:5000",  // ← Replace with your Pi's Tailscale IP
 ```
 1. Disable home WiFi on iPhone (use cellular)
 2. Open Scriptable app
-3. Run home-geofence.js manually
+3. Run ph_home-geofence.js manually
 4. Check console output
 5. Should see: "Home network: false" and call to VPN URL
 ```
@@ -479,7 +479,7 @@ piVPN: "http://100.64.0.2:5000",  // ← Replace with your Pi's Tailscale IP
 # On Pi
 sudo tailscale up --accept-dns
 
-# Update home-geofence.js to use hostname
+# Update ph_home-geofence.js to use hostname
 piVPN: "http://raspberrypi:5000",  // No need for IP!
 ```
 
@@ -523,7 +523,7 @@ tail -f ~/py_home/data/logs/automation.log
 ```
 1. Leave home (>200m)
 2. Ensure iPhone on cellular (not WiFi)
-3. iOS automation triggers home-geofence.js
+3. iOS automation triggers ph_home-geofence.js
 4. Check logs on Pi
 5. Should see: /leaving-home endpoint hit via Tailscale IP
 ```
@@ -632,7 +632,7 @@ Maybe! If you're mostly home and offline queueing handles arrivals/departures, V
 
 **Week 1: Basic Setup**
 1. Install Tailscale on Pi, laptop, iPhone (30 min)
-2. Update home-geofence.js with Tailscale IP (2 min)
+2. Update ph_home-geofence.js with Tailscale IP (2 min)
 3. Test basic connectivity (10 min)
 
 **Week 2: Real-World Testing**
@@ -671,6 +671,6 @@ Maybe! If you're mostly home and offline queueing handles arrivals/departures, V
 
 ## Related Files
 
-- **Scriptable with VPN:** `scripts/ios/home-geofence.js` (lines 7, 74-76)
+- **Scriptable with VPN:** `scripts/ios/ph_home-geofence.js` (lines 7, 74-76)
 - **Architecture:** `docs/ARCHITECTURE.md`
 - **Test Plan:** `docs/TWO_STAGE_ARRIVAL_TEST_PLAN.md`

@@ -236,7 +236,7 @@ pytest
 - `config/config.yaml`
 - `docs/ARCHITECTURE.md`
 - `docs/IOS_AUTOMATION.md`
-- `scripts/ios/home-geofence.js`
+- `scripts/ios/ph_home-geofence.js`
 - `server/routes.py`
 
 **Untracked** (New):

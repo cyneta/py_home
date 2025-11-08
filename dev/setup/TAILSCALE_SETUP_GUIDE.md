@@ -59,7 +59,7 @@ tailscale status
 # 100.64.0.x    raspberrypi         matt.wheeler@   linux   -
 #                                   Connected
 
-# Note this IP address! You'll need it for home-geofence.js
+# Note this IP address! You'll need it for ph_home-geofence.js
 ```
 
 **Save the IP:**
@@ -248,7 +248,7 @@ ssh matt.wheeler@100.64.0.2
 
 ---
 
-## Phase 3: Update home-geofence.js (5 minutes)
+## Phase 3: Update ph_home-geofence.js (5 minutes)
 
 ### Step 1: Update Git Repo Version
 
@@ -256,7 +256,7 @@ ssh matt.wheeler@100.64.0.2
 # On laptop
 cd /c/git/cyneta/py_home/scripts/ios
 
-# Open home-geofence.js in editor
+# Open ph_home-geofence.js in editor
 # Find line 7:
 # piVPN: "http://100.64.0.2:5000",
 
@@ -290,8 +290,8 @@ const config = {
 
 ```bash
 # Copy to iCloud Drive location
-cp /c/git/cyneta/py_home/scripts/ios/home-geofence.js \
-   "C:/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/home-geofence.js"
+cp /c/git/cyneta/py_home/scripts/ios/ph_home-geofence.js \
+   "C:/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/ph_home-geofence.js"
 
 # Or manually edit the iCloud version with same IP
 ```
@@ -299,8 +299,8 @@ cp /c/git/cyneta/py_home/scripts/ios/home-geofence.js \
 **Verify:**
 ```bash
 # Check both files have same IP
-grep "piVPN" /c/git/cyneta/py_home/scripts/ios/home-geofence.js
-grep "piVPN" "C:/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/home-geofence.js"
+grep "piVPN" /c/git/cyneta/py_home/scripts/ios/ph_home-geofence.js
+grep "piVPN" "C:/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/ph_home-geofence.js"
 
 # Both should show your Tailscale IP
 ```
@@ -346,7 +346,7 @@ Calling: http://100.64.0.2:5000/pre-arrival  ← Using Tailscale!
 - Check iPhone Tailscale app shows Pi as online
 - Verify VPN is active (check status bar)
 - Try disabling/enabling Tailscale VPN toggle
-- Check home-geofence.js has correct IP
+- Check ph_home-geofence.js has correct IP
 
 ---
 
@@ -406,7 +406,7 @@ tailscale status
 # tail-scale.ts.net
 ```
 
-**Update home-geofence.js:**
+**Update ph_home-geofence.js:**
 ```javascript
 // Change from:
 piVPN: "http://100.64.0.2:5000",
@@ -586,7 +586,7 @@ If not there:
 3. Enable "On Demand" in settings
 ```
 
-**Check 2: Is home-geofence.js updated?**
+**Check 2: Is ph_home-geofence.js updated?**
 ```
 Open Scriptable app → Scripts → home-geofence → Edit
 Check line 7 has correct piVPN IP
@@ -653,7 +653,7 @@ tailscale status
 - ✅ Can access Pi endpoints over Tailscale
 
 **Day 2-3:**
-- ✅ Updated home-geofence.js with Tailscale IP
+- ✅ Updated ph_home-geofence.js with Tailscale IP
 - ✅ Tested geofencing over cellular
 - ✅ Verified automation triggers work remotely
 
@@ -758,7 +758,7 @@ sudo systemctl restart tailscaled
 
 **Option 1: Offline Queueing (Already Built In)**
 ```javascript
-// home-geofence.js already has this
+// ph_home-geofence.js already has this
 if (!result.success) {
   console.log("Queueing action for later...");
   state.queue.push({endpoint, timestamp, transition});
@@ -787,7 +787,7 @@ sudo apt remove tailscale
 # Long-press Tailscale app → Delete App
 ```
 
-**Revert home-geofence.js:**
+**Revert ph_home-geofence.js:**
 ```javascript
 // Change line 7 back to placeholder
 piVPN: "http://100.64.0.2:5000",  // Not used without VPN
@@ -902,8 +902,8 @@ Copy this to track your progress:
 - [ ] SSH to Pi (cellular)
 
 ### Phase 3: Update Geofence Script (5 min)
-- [ ] Update git repo home-geofence.js
-- [ ] Update iCloud home-geofence.js
+- [ ] Update git repo ph_home-geofence.js
+- [ ] Update iCloud ph_home-geofence.js
 - [ ] Verify both files match
 
 ### Phase 4: Test iOS Geofencing (10 min)

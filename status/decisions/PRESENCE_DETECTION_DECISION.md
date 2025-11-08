@@ -277,7 +277,7 @@ crontab -e
 ## References
 
 - WiFi DHCP Monitor: `automations/wifi_event_monitor.py`
-- iOS Geofencing Script: `scripts/ios/home-geofence.js`
+- iOS Geofencing Script: `scripts/ios/ph_home-geofence.js`
 - Ping Monitor (deprecated): `automations/presence_monitor.py`
 - Architecture Doc: `ARCHITECTURE.md`
 - Scriptable Migration: `SCRIPTABLE_MIGRATION.md`

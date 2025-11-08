@@ -191,7 +191,7 @@ tail -20 /home/matt.wheeler/py_home/data/logs/automations.log
 #### Test 5.2: Trigger Pre-Arrival via iOS Geofence
 **Steps:**
 1. User crosses geofence boundary (173m radius)
-2. iOS automation triggers home-geofence.js
+2. iOS automation triggers ph_home-geofence.js
 3. Script calls `/pre-arrival`
 
 ```bash

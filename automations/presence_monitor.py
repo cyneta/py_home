@@ -7,7 +7,7 @@ Presence Monitor Automation
 This script is no longer used in the primary presence detection stack.
 Replaced by:
 1. WiFi DHCP Monitor (wifi_event_monitor.py) - Instant arrivals
-2. iOS Geofencing (home-geofence.js) - Instant arrivals + departures
+2. iOS Geofencing (ph_home-geofence.js) - Instant arrivals + departures
 
 See docs/PRESENCE_DETECTION_DECISION.md for rationale.
 

@@ -22,7 +22,7 @@ py_home is a Python-based home automation system running on Raspberry Pi, contro
 │                                                              │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │  Scriptable Scripts (Background)                     │   │
-│  │  - home-geofence.js  → Arrival/departure detection  │   │
+│  │  - ph_home-geofence.js  → Arrival/departure detection  │   │
 │  │  - [Future scripts...]                               │   │
 │  └────────────────────┬─────────────────────────────────┘   │
 │                       │                                      │
@@ -88,7 +88,7 @@ py_home is a Python-based home automation system running on Raspberry Pi, contro
 - **Status:** Migrating from iOS Shortcuts (see [SCRIPTABLE_MIGRATION.md](./SCRIPTABLE_MIGRATION.md))
 
 **Current Scripts:**
-- `home-geofence.js` - Arrival/departure detection (planned)
+- `ph_home-geofence.js` - Arrival/departure detection (planned)
 
 #### iOS Shortcuts (Manual)
 - **Manual triggers** - Voice commands, buttons
@@ -235,7 +235,7 @@ Runs every 15 minutes
    ↓
 2. iOS triggers Scriptable automation
    ↓
-3. home-geofence.js executes:
+3. ph_home-geofence.js executes:
    - Gets current location
    - Calculates distance (Haversine formula)
    - Confirms within 150m
@@ -337,7 +337,7 @@ home
 
 ```
 Time-based automation → Every 5-15 minutes
-  → Run Scriptable: home-geofence.js
+  → Run Scriptable: ph_home-geofence.js
   → Background execution (no user interaction)
 ```
 
@@ -511,7 +511,7 @@ tail -f data/logs/*.log
 
 ```bash
 # Edit on laptop
-code /c/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/home-geofence.js
+code /c/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/ph_home-geofence.js
 
 # iCloud syncs automatically (~30 seconds)
 # Script appears in Scriptable app on iPhone

@@ -58,7 +58,7 @@ User: "I am seeing what I think are geofence notifications on my phone,
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │  Scriptable App                                      │   │
 │  │                                                      │   │
-│  │  home-geofence.js                                   │   │
+│  │  ph_home-geofence.js                                │   │
 │  │  - Runs every 5-15 minutes (time-based automation) │   │
 │  │  - Checks current location                          │   │
 │  │  - Detects arrival/departure                        │   │
@@ -144,7 +144,7 @@ User: "I am seeing what I think are geofence notifications on my phone,
 
 ### Scriptable Scripts (Automated)
 
-#### `home-geofence.js`
+#### `ph_home-geofence.js`
 **Status:** Planned (see migration guide)
 **Trigger:** Time-based automation (every 5-15 minutes)
 **Purpose:** Detect home arrival/departure
@@ -211,7 +211,7 @@ User: "I am seeing what I think are geofence notifications on my phone,
 
 ```bash
 # Open in VS Code
-code /c/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/home-geofence.js
+code /c/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/ph_home-geofence.js
 
 # Edit with syntax highlighting, linting, etc.
 # Save file
@@ -294,8 +294,8 @@ if (fm.fileExists(path)) {
 **Git as Backup:**
 ```bash
 # Periodically commit scripts to Git
-cp /c/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/home-geofence.js \
-   /c/git/cyneta/py_home/scripts/ios/home-geofence.js
+cp /c/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/ph_home-geofence.js \
+   /c/git/cyneta/py_home/scripts/ios/ph_home-geofence.js
 
 git add scripts/ios/
 git commit -m "Backup Scriptable scripts"
@@ -305,7 +305,7 @@ git push
 **Recovery:**
 ```bash
 # Restore from Git if needed
-cp /c/git/cyneta/py_home/scripts/ios/home-geofence.js \
+cp /c/git/cyneta/py_home/scripts/ios/ph_home-geofence.js \
    /c/Users/matt.wheeler/iCloudDrive/iCloud~dk~simonbs~Scriptable/
 ```
 
@@ -331,7 +331,7 @@ cp /c/git/cyneta/py_home/scripts/ios/home-geofence.js \
 Scripts read configuration from embedded constants:
 
 ```javascript
-// home-geofence.js
+// ph_home-geofence.js
 const config = {
   // Pi server URLs
   piLocal: "http://raspberrypi.local:5000",
@@ -413,7 +413,7 @@ locations:
 ```
 1. Walk/drive away from home (>173m from iOS geofence)
    ↓
-2. iOS Shortcuts automation triggers home-geofence.js
+2. iOS Shortcuts automation triggers ph_home-geofence.js
    ↓
 3. Check Scriptable console logs
    ↓
@@ -432,7 +432,7 @@ locations:
 ```
 1. Return home, cross 173m geofence boundary (~60 sec before home)
    ↓
-2. iOS automation triggers home-geofence.js
+2. iOS automation triggers ph_home-geofence.js
    ↓
 3. Check Scriptable console: "STATE CHANGE: false → true"
    ↓
@@ -469,7 +469,7 @@ locations:
 ```
 1. Enable Airplane Mode
    ↓
-2. Manually run home-geofence.js in Scriptable
+2. Manually run ph_home-geofence.js in Scriptable
    ↓
 3. Check console: "Queueing action for later..."
    ↓
