@@ -1,3 +1,7 @@
+Top of Mind
+- priority 1 should be most severe
+- rename all py_home scriptable tasks with the PY_prefix, carefully repair any references to the script names
+
 Reliability
 - investigate TempStick monitor false alarm exceptions (sensor works, but monitor logs exceptions)
 - review ntfy alerts
