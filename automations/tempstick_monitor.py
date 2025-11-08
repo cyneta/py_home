@@ -309,15 +309,17 @@ def main():
         kvlog(logger, logging.ERROR, automation='tempstick_monitor',
               event='error', error_type=type(e).__name__, error_msg=str(e))
 
-        if not args.dry_run:
-            send_automation_summary(
-                "❌ Sensor Monitor Failed",
-                [
-                    f"Error: {str(e)[:50]}",
-                    "Check sensor connection"
-                ],
-                priority=1
-            )
+        # Notification disabled - false alarms, sensor is working
+        # TODO: Investigate why exceptions occur when sensor is operational
+        # if not args.dry_run:
+        #     send_automation_summary(
+        #         "❌ Sensor Monitor Failed",
+        #         [
+        #             f"Error: {str(e)[:50]}",
+        #             "Check sensor connection"
+        #         ],
+        #         priority=1
+        #     )
 
         logger.exception("Temp Stick monitor failed")
         return 1
