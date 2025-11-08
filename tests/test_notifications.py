@@ -10,7 +10,7 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from lib.notifications import send, send_low, send_normal, send_high, send_emergency
+from lib.notifications import send, send_info, send_urgent
 
 
 class TestNotificationValidation(unittest.TestCase):
@@ -44,7 +44,7 @@ class TestNotificationValidation(unittest.TestCase):
         """Valid priorities should be accepted"""
         with patch('lib.notifications._send_ntfy') as mock_send:
             mock_send.return_value = True
-            for priority in [-2, -1, 0, 1, 2]:
+            for priority in [0, 1]:
                 result = send("Test", priority=priority)
                 # Should not raise exception
 
@@ -53,28 +53,16 @@ class TestConvenienceFunctions(unittest.TestCase):
     """Test convenience wrapper functions"""
 
     @patch('lib.notifications.send')
-    def test_send_low(self, mock_send):
-        """send_low should use priority -1"""
-        send_low("Test message", "Test Title")
-        mock_send.assert_called_once_with("Test message", "Test Title", priority=-1)
-
-    @patch('lib.notifications.send')
-    def test_send_normal(self, mock_send):
-        """send_normal should use priority 0"""
-        send_normal("Test message", "Test Title")
+    def test_send_info(self, mock_send):
+        """send_info should use priority 0"""
+        send_info("Test message", "Test Title")
         mock_send.assert_called_once_with("Test message", "Test Title", priority=0)
 
     @patch('lib.notifications.send')
-    def test_send_high(self, mock_send):
-        """send_high should use priority 1"""
-        send_high("Test message", "Test Title")
+    def test_send_urgent(self, mock_send):
+        """send_urgent should use priority 1"""
+        send_urgent("Test message", "Test Title")
         mock_send.assert_called_once_with("Test message", "Test Title", priority=1)
-
-    @patch('lib.notifications.send')
-    def test_send_emergency(self, mock_send):
-        """send_emergency should use priority 2"""
-        send_emergency("Test message", "Test Title")
-        mock_send.assert_called_once_with("Test message", "Test Title", priority=2)
 
 
 class TestNtfyBackend(unittest.TestCase):
@@ -100,16 +88,12 @@ class TestNtfyBackend(unittest.TestCase):
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
-        # Pushover -2 -> ntfy 1
-        send("Test", priority=-2)
-        self.assertEqual(mock_post.call_args[1]['headers']['Priority'], '1')
-
-        # Pushover 0 -> ntfy 3
+        # Priority 0 (info) -> ntfy 3 (default)
         send("Test", priority=0)
         self.assertEqual(mock_post.call_args[1]['headers']['Priority'], '3')
 
-        # Pushover 2 -> ntfy 5
-        send("Test", priority=2)
+        # Priority 1 (urgent) -> ntfy 5 (urgent)
+        send("Test", priority=1)
         self.assertEqual(mock_post.call_args[1]['headers']['Priority'], '5')
 
     @patch('lib.notifications.requests.post')

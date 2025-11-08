@@ -62,7 +62,7 @@ class TestTempstickMonitor:
             priority = call_args[1]['priority']
 
             assert 'Cold' in title or '❄️' in title
-            assert priority == 2  # Urgent
+            assert priority == 1  # Urgent
 
     def test_pipe_freeze_detection_warning(self):
         """Test cold warning triggering (warning threshold)"""
@@ -159,7 +159,7 @@ class TestTempstickMonitor:
             # Verify urgent priority
             assert mock_notify.called
             priority = mock_notify.call_args[1]['priority']
-            assert priority == 2  # Urgent
+            assert priority == 1  # Urgent
 
     def test_sensor_offline_detection(self):
         """Test sensor offline alert"""
@@ -286,10 +286,9 @@ class TestTempstickMonitor:
             # Should return error code
             assert result == 1
 
-            # Should send error notification
-            assert mock_notify.called
-            title = mock_notify.call_args[0][0]
-            assert 'Failed' in title or 'Error' in title or '❌' in title
+            # Note: Error notification is currently disabled (false alarms)
+            # See tempstick_monitor.py line 312-322
+            assert not mock_notify.called
 
 
 # =============================================================================

@@ -26,14 +26,14 @@ def send(message, title="Home Automation", priority=0):
     Args:
         message: Notification text
         title: Notification title
-        priority: -2=lowest, -1=low, 0=normal, 1=high, 2=emergency (Pushover only)
+        priority: 0=info (default), 1=urgent (emergencies only)
 
     Returns:
         bool: True if notification sent successfully
 
     Example:
-        >>> send("House secured, cleaning started")
-        >>> send("Tesla battery low (18%)", priority=1)
+        >>> send("Backup completed")  # Info (avoid - use logs instead)
+        >>> send("Pipe freeze risk", priority=1)  # Urgent
     """
     # Validate message is not empty
     if not message or (isinstance(message, str) and not message.strip()):
@@ -94,14 +94,11 @@ def _send_ntfy(message, title, priority, config):
     topic = ntfy_config.get('topic', 'py_home_automation')
 
     # Map priority to ntfy priority (1-5)
-    # Pushover: -2, -1, 0, 1, 2
-    # ntfy: 1 (min), 3 (default), 5 (max)
+    # py_home: 0 (info), 1 (urgent)
+    # ntfy: 3 (default), 5 (urgent)
     ntfy_priority = {
-        -2: 1,
-        -1: 2,
-        0: 3,
-        1: 4,
-        2: 5
+        0: 3,  # Info - normal notification
+        1: 5   # Urgent - high priority, bypass DND
     }.get(priority, 3)
 
     try:
@@ -139,24 +136,14 @@ def _send_ntfy(message, title, priority, config):
 
 
 # Convenience functions for common priority levels
-def send_low(message, title="Home Automation"):
-    """Send low-priority notification (no sound/vibration)"""
-    return send(message, title, priority=-1)
-
-
-def send_normal(message, title="Home Automation"):
-    """Send normal notification"""
+def send_info(message, title="Home Automation"):
+    """Send info notification (avoid - use logs instead per design principle)"""
     return send(message, title, priority=0)
 
 
-def send_high(message, title="Home Automation"):
-    """Send high-priority notification (bypass quiet hours)"""
+def send_urgent(message, title="Home Automation"):
+    """Send urgent notification (emergencies only)"""
     return send(message, title, priority=1)
-
-
-def send_emergency(message, title="Home Automation"):
-    """Send emergency notification (repeats until acknowledged, Pushover only)"""
-    return send(message, title, priority=2)
 
 
 def send_automation_summary(event_title, actions, priority=0):

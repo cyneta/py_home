@@ -1,37 +1,25 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-*.egg-info/
-dist/
-build/
-
-# Credentials
+_pycache__/
+.alert_state/
+.DS_Store
 .env
+.idea/
+.night_mode
+.presence_state
+.Python
+.scheduler_state
+.vscode/
+*.egg-info/
+*.log
+*.py[cod]
+*.so
+*.swo
+*.swp
+*$py.class
+build/
 config/.env
 config/config.local.yaml
-
-# Logs
-*.log
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Runtime state
-.alert_state/
-.presence_state
-.night_mode
-.scheduler_state
 data/location.json
-
+dist/
+env/
+Thumbs.db
+venv/

@@ -170,12 +170,10 @@ Use appropriate priority for severity:
 
 | Priority | Level | When to Use | Example |
 |----------|-------|-------------|---------|
-| 2 | Emergency | Immediate action required | Pipe freeze (<50°F), very high humidity (>70%) |
-| 1 | High | Requires attention soon | Sensor offline, automation error, cold warning (<55°F) |
-| 0 | Normal | FYI, no urgency | *(Generally avoid - use logs instead)* |
-| -1 | Low | Informational | *(Never use - use logs instead)* |
+| 1 | Urgent | Immediate action required | Pipe freeze (<50°F), very high humidity (>70%), sensor offline, automation errors |
+| 0 | Info | Informational, no urgency | *(Generally avoid - use logs instead per design principle)* |
 
-**General rule:** If using priority 0 or -1, ask yourself if a notification is needed at all. Use logs instead.
+**General rule:** If using priority 0, ask yourself if a notification is needed at all. Use logs instead.
 
 ## Examples
 
@@ -233,7 +231,7 @@ if temp_f < PIPE_FREEZE_TEMP:
     send_automation_summary(
         f"❄️ Crawlspace Cold ({temp_f:.1f}°F)",
         ["Pipe freeze risk", "Check heating system"],
-        priority=2  # Urgent
+        priority=1  # Urgent
     )
 ```
 
@@ -310,7 +308,7 @@ send("Pre-arrival triggered, starting HVAC", priority=0)
 
 **Rules:**
 1. Add `send()` calls as needed during development
-2. Use priority 0 or -1 (low priority)
+2. Use priority 0 (info)
 3. Add comment: `# DEBUG - remove before commit`
 4. Remove before merging to main branch
 5. For permanent debug info, use logs instead

@@ -67,7 +67,7 @@ def check_pipe_freeze_risk(temp_f, room, dry_run=False):
                         "Pipe freeze risk",
                         "Check heating system"
                     ],
-                    priority=2  # Urgent
+                    priority=1  # Urgent
                 )
                 record_alert_sent('pipe_freeze', room)
             else:
@@ -130,7 +130,7 @@ def check_humidity_risk(humidity, room, dry_run=False):
                         f"{room}",
                         "Possible leak - check area"
                     ],
-                    priority=2  # Urgent
+                    priority=1  # Urgent
                 )
                 record_alert_sent('very_high_humidity', room)
             else:
