@@ -81,17 +81,18 @@ def collect_nest():
 
     status = get_status()
 
-    # Extract current temperature if available
-    current_temp = status.get('current_temperature_f', 'N/A')
+    # Extract current temperature
+    current_temp = status.get('current_temp_f', 'N/A')
 
     # Get target temperature (may be in different fields depending on mode)
     target_temp = 'N/A'
-    if 'target_temperature_f' in status:
-        target_temp = status['target_temperature_f']
-    elif 'heat_setpoint_f' in status:
+    if 'heat_setpoint_f' in status and status['heat_setpoint_f']:
         target_temp = status['heat_setpoint_f']
-    elif 'cool_setpoint_f' in status:
+    elif 'cool_setpoint_f' in status and status['cool_setpoint_f']:
         target_temp = status['cool_setpoint_f']
+    elif 'eco_heat_f' in status and status['eco_heat_f']:
+        # In ECO mode, use ECO heat threshold as "target"
+        target_temp = status['eco_heat_f']
 
     # Get mode
     mode = status.get('mode', 'N/A')
