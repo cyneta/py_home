@@ -170,3 +170,20 @@ automation:
   grow_light:
     on_time: "06:00"
     off_time: "20:00"
+
+# Data Collection for Analysis
+data_collection:
+  temperature_logging:
+    enabled: true
+    interval_minutes: 15
+    file: "data/logs/temp_analysis.csv"
+    continue_on_error: true
+    sources:
+      outdoor_weather: true
+      tempstick: true
+      nest: true
+      sensibo: true
+      alen_living: true  # Will skip if not configured
+      alen_bedroom: true  # Will skip if not configured
+      tapo_heater: true
+      system_state: true
