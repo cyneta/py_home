@@ -142,6 +142,7 @@ openweather:
 tempstick:
   api_key: "${TEMPSTICK_API_KEY}"
   sensor_id: "${TEMPSTICK_SENSOR_ID}"  # Format: TS00XXXXXX
+  location: "Living Room"  # Current sensor location (was: Crawl Space)
 
 presence:
   # Network-based presence detection (backup to iOS location)

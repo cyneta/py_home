@@ -136,10 +136,13 @@ def resolve_env_vars(obj):
 # Resolve all environment variables in config
 config = resolve_env_vars(config)
 
-# Validate config and warn about mismatches
+# Validate config and warn about mismatches (only log once per process to avoid spam)
+_config_warnings_logged = False
 try:
     from lib.config_validator import log_config_warnings
-    log_config_warnings(config, local_config_raw)
+    if not _config_warnings_logged:
+        log_config_warnings(config, local_config_raw)
+        _config_warnings_logged = True
 except ImportError:
     pass  # Validator not available
 

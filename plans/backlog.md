@@ -1,6 +1,6 @@
 Top of Mind
-- priority 1 should be most severe
-- rename all py_home scriptable tasks with the PY_prefix, carefully repair any references to the script names
+- log everything needed to study and optimize temperature control
+- review the boost for cold outdoor conditions
 
 Reliability
 - investigate TempStick monitor false alarm exceptions (sensor works, but monitor logs exceptions)
