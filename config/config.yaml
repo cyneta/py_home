@@ -42,6 +42,7 @@ temperatures:
 
   # Weather-aware wake temperature adjustments (morning only)
   weather_aware:
+    enabled: false        # Enable weather-based temperature boost at wake
     cold_threshold: 40    # Outdoor temp < 40°F triggers cold weather mode
     cold_target: 72       # Target temp for cold mornings (extra warmth)
     hot_threshold: 75     # Outdoor temp > 75°F triggers hot weather mode

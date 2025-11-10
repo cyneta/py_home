@@ -115,21 +115,29 @@ def transition_to_wake(dry_run=False):
         kvlog(logger, logging.INFO, transition='wake', action='get_weather',
               temp=temp, condition=condition, duration_ms=duration_ms)
 
-        # Calculate target based on outdoor temp (weather-aware)
-        cold_threshold = get('temperatures.weather_aware.cold_threshold', 40)
-        hot_threshold = get('temperatures.weather_aware.hot_threshold', 75)
-        cold_target = get('temperatures.weather_aware.cold_target', 72)
-        hot_target = get('temperatures.weather_aware.hot_target', 68)
+        # Check if weather-aware boost is enabled
+        weather_aware_enabled = get('temperatures.weather_aware.enabled', False)
 
-        if temp < cold_threshold:
-            target_temp = cold_target
-            mode_note = f"Extra warmth mode ({temp:.0f}°F outside)"
-        elif temp > hot_threshold:
-            target_temp = hot_target
-            mode_note = f"Light mode ({temp:.0f}°F outside)"
+        if weather_aware_enabled:
+            # Calculate target based on outdoor temp (weather-aware)
+            cold_threshold = get('temperatures.weather_aware.cold_threshold', 40)
+            hot_threshold = get('temperatures.weather_aware.hot_threshold', 75)
+            cold_target = get('temperatures.weather_aware.cold_target', 72)
+            hot_target = get('temperatures.weather_aware.hot_target', 68)
+
+            if temp < cold_threshold:
+                target_temp = cold_target
+                mode_note = f"Extra warmth mode ({temp:.0f}°F outside)"
+            elif temp > hot_threshold:
+                target_temp = hot_target
+                mode_note = f"Light mode ({temp:.0f}°F outside)"
+            else:
+                target_temp = get('temperatures.comfort', 70)
+                mode_note = f"Normal mode ({temp:.0f}°F outside)"
         else:
+            # Weather-aware disabled - always use comfort temp
             target_temp = get('temperatures.comfort', 70)
-            mode_note = f"Normal mode ({temp:.0f}°F outside)"
+            mode_note = f"Normal mode ({temp:.0f}°F outside, weather-aware disabled)"
 
         weather_info = f"{temp:.0f}°F, {condition}"
 
