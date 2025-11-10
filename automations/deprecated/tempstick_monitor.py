@@ -2,6 +2,30 @@
 """
 Temp Stick Monitor
 
+**STATUS: DEPRECATED as of 2025-11-10**
+
+This script is no longer used. Replaced by temp_data_logger.py which captures
+TempStick data along with all other temperature sensors.
+
+Original purpose was monitoring crawlspace for:
+- Pipe freeze risk (temp < 50°F)
+- High humidity/leak detection (humidity > 65%)
+- Sensor offline warnings
+- Equipment failure detection (rapid temp drop)
+
+Deprecated because:
+- TempStick moved from crawlspace to living room (no freeze/leak risk)
+- temp_data_logger.py now captures TempStick data for analysis
+- Caused API rate limiting when running alongside data logger
+
+Kept for:
+- Historical reference
+- Alert logic that may be useful if TempStick returns to crawlspace
+
+---
+
+Original Documentation:
+
 Monitors Temp Stick temperature/humidity sensor for:
 - Pipe freeze risk (temp < 50°F)
 - High humidity/leak detection (humidity > 65%)
@@ -9,7 +33,7 @@ Monitors Temp Stick temperature/humidity sensor for:
 - Equipment failure detection (rapid temp drop)
 
 Location: Configurable via config.yaml (tempstick.room)
-Current location: Crawlspace near laundry pipes
+Original location: Crawlspace near laundry pipes
 
 Usage:
     python automations/tempstick_monitor.py [--dry-run]
