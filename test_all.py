@@ -15,58 +15,11 @@ import argparse
 import time
 import requests
 from typing import Dict, List, Optional
+from pathlib import Path
 
-# ANSI color codes for pretty output
-GREEN = '\033[92m'
-RED = '\033[91m'
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-CYAN = '\033[96m'
-RESET = '\033[0m'
-
-
-class TestResult:
-    """Store results for a test"""
-    def __init__(self, name: str, status: str, message: str = "", details: Dict = None, duration: float = 0):
-        self.name = name
-        self.status = status  # 'pass', 'fail', 'skip'
-        self.message = message
-        self.details = details or {}
-        self.duration = duration
-
-    @property
-    def passed(self):
-        return self.status == 'pass'
-
-    @property
-    def skipped(self):
-        return self.status == 'skip'
-
-
-def print_header(text: str):
-    """Print a section header"""
-    print(f"\n{BLUE}{'='*70}")
-    print(f"{text}")
-    print(f"{'='*70}{RESET}\n")
-
-
-def print_result(result: TestResult):
-    """Print a test result"""
-    if result.status == 'pass':
-        status = f"{GREEN}✓ PASS{RESET}"
-    elif result.status == 'skip':
-        status = f"{YELLOW}⊘ SKIP{RESET}"
-    else:
-        status = f"{RED}✗ FAIL{RESET}"
-
-    duration_str = f" ({result.duration:.2f}s)" if result.duration > 0 else ""
-    print(f"{status} {result.name}{duration_str}")
-
-    if result.message:
-        print(f"  {result.message}")
-    if result.details:
-        for key, value in result.details.items():
-            print(f"    {key}: {value}")
+# Import visual logging from test_suite_framework
+sys.path.insert(0, str(Path(__file__).parent.parent / 'test_suite_framework'))
+from utils.visual_logging import TestResult, print_header, print_result, GREEN, RED, YELLOW, BLUE, CYAN, RESET
 
 
 # ============================================================================
