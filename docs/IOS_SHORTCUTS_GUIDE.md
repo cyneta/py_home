@@ -16,9 +16,14 @@ Complete guide to setting up voice-controlled home automation via iOS Shortcuts 
 
 1. ✅ py_home deployed to Raspberry Pi
 2. ✅ Flask server running on Pi
-3. ✅ Pi accessible via `raspberrypi.local` (mDNS)
-4. ✅ iPhone on same WiFi network as Pi
+3. ✅ Pi accessible via one of:
+   - `raspberrypi.local` (mDNS - home WiFi only)
+   - `192.168.50.189` (static IP - home WiFi only)
+   - `100.107.121.6` (Tailscale VPN - works anywhere)
+4. ✅ iPhone on same WiFi network as Pi (or Tailscale connected)
 5. ✅ iOS Shortcuts app installed (built-in on iOS 13+)
+
+**Tip:** Use Tailscale IP (`100.107.121.6`) in shortcuts to control your home from anywhere, not just home WiFi.
 
 ---
 
