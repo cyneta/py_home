@@ -159,3 +159,58 @@ def api_automation_control():
             'message': 'Edit config/config.yaml and set automations.dry_run, then restart service',
             'current_dry_run': get('automations.dry_run', False)
         }), 403
+
+
+@api_system_bp.route('/voice-status')
+def voice_status():
+    """
+    Get house status as speakable text for Siri/voice assistants.
+
+    Returns JSON with 'speech' field optimized for text-to-speech.
+    """
+    try:
+        from lib.config import get
+        from lib.hvac_logic import is_sleep_time
+        from server import FLASK_START_TIME
+
+        parts = []
+
+        # Temperature (if available from recent data)
+        # For now, just report mode
+        if is_sleep_time():
+            parts.append("sleep mode active")
+        else:
+            parts.append("comfort mode active")
+
+        # Dry run status
+        if get('automations.dry_run', False):
+            parts.append("dry run enabled")
+
+        # Uptime
+        uptime_seconds = time.time() - FLASK_START_TIME
+        hours = int(uptime_seconds // 3600)
+        if hours > 24:
+            days = hours // 24
+            parts.append(f"server up {days} days")
+        elif hours > 0:
+            parts.append(f"server up {hours} hours")
+
+        speech = "House status: " + ", ".join(parts) + "."
+
+        return jsonify({
+            'status': 'ok',
+            'speech': speech,
+            'details': {
+                'sleep_mode': is_sleep_time(),
+                'dry_run': get('automations.dry_run', False),
+                'uptime_hours': hours
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Failed to get voice status: {e}")
+        return jsonify({
+            'status': 'error',
+            'speech': 'Sorry, I could not get house status.',
+            'error': str(e)
+        }), 500
