@@ -16,7 +16,6 @@
 
 - [ ] TempStick weekly battery report
 - [ ] System health monitor
-- [ ] Quiet hours (11pm-6am)
 - [ ] Notification aggregation
 
 ## Bugs

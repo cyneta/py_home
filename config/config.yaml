@@ -83,6 +83,10 @@ notifications:
   service: "ntfy"
   ntfy:
     topic: "py_home_7h3k2m9x"
+  quiet_hours:
+    enabled: true
+    start: "23:00"  # 11pm
+    end: "06:00"    # 6am
 
 tapo:
   username: "${TAPO_USERNAME}"
