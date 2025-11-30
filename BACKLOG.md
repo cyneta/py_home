@@ -6,6 +6,7 @@
 - [ ] Pi: Set up cron jobs
 - [ ] iOS: Create manual shortcuts
 - [ ] iOS: Create geofencing automations
+- [ ] iOS: Test Scriptable geofence script
 
 ## Planned
 
