@@ -123,7 +123,7 @@ roborock:
 github:
   token: "${GITHUB_TOKEN}"
   repo: "cyneta/py_home"
-  todo_path: "TODO.md"
+  todo_path: "BACKLOG.md"
 
 checkvist:
   username: "${CHECKVIST_USERNAME}"
