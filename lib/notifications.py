@@ -11,12 +11,51 @@ Priority levels:
 -  0: Normal (default)
 -  1: High (bypass quiet hours)
 -  2: Emergency (repeats until acknowledged, Pushover only)
+
+Quiet hours:
+- Configured in config.yaml (notifications.quiet_hours)
+- During quiet hours, only priority >= 1 notifications are sent
+- Normal notifications are silently dropped (logged as skipped)
 """
 
 import requests
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+
+def is_quiet_hours():
+    """
+    Check if current time is within quiet hours.
+
+    Returns:
+        bool: True if in quiet hours, False otherwise
+    """
+    from lib.config import config
+
+    quiet_config = config.get('notifications', {}).get('quiet_hours', {})
+
+    if not quiet_config.get('enabled', False):
+        return False
+
+    start_str = quiet_config.get('start', '23:00')
+    end_str = quiet_config.get('end', '06:00')
+
+    # Parse times
+    start_hour, start_min = map(int, start_str.split(':'))
+    end_hour, end_min = map(int, end_str.split(':'))
+
+    now = datetime.now()
+    current_minutes = now.hour * 60 + now.minute
+    start_minutes = start_hour * 60 + start_min
+    end_minutes = end_hour * 60 + end_min
+
+    # Handle overnight wrap (e.g., 23:00 - 06:00)
+    if start_minutes > end_minutes:
+        return current_minutes >= start_minutes or current_minutes < end_minutes
+    else:
+        return start_minutes <= current_minutes < end_minutes
 
 
 def send(message, title="Home Automation", priority=0):
@@ -26,7 +65,7 @@ def send(message, title="Home Automation", priority=0):
     Args:
         message: Notification text
         title: Notification title
-        priority: 0=info (default), 1=urgent (emergencies only)
+        priority: 0=info (default), 1=urgent (bypasses quiet hours)
 
     Returns:
         bool: True if notification sent successfully
@@ -39,6 +78,11 @@ def send(message, title="Home Automation", priority=0):
     if not message or (isinstance(message, str) and not message.strip()):
         logger.warning("Notification rejected: empty message")
         return False
+
+    # Check quiet hours - only urgent (priority >= 1) bypasses
+    if is_quiet_hours() and priority < 1:
+        logger.debug(f"Quiet hours - skipping notification: {title or message[:50]}")
+        return True  # Return True so callers don't retry
 
     from lib.config import config
 
@@ -177,9 +221,8 @@ def send_automation_summary(event_title, actions, priority=0):
 
 __all__ = [
     'send',
-    'send_low',
-    'send_normal',
-    'send_high',
-    'send_emergency',
-    'send_automation_summary'
+    'send_info',
+    'send_urgent',
+    'send_automation_summary',
+    'is_quiet_hours'
 ]

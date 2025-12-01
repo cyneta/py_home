@@ -224,17 +224,37 @@ curl http://raspberrypi.local:5000/status
 # Edit crontab
 crontab -e
 
-# Add scheduled automations
-#
-# IMPORTANT: Scheduler automation runs every minute and checks for exact time matches
-# - It triggers wake transition at 05:00 and sleep transition at 22:30
-# - Times are configured in config/config.yaml (schedule.wake_time, schedule.sleep_time)
-# - Uses .scheduler_state file to prevent duplicate runs on same day
-#
-# Run scheduler every minute (checks for 05:00 wake and 22:30 sleep transitions)
+# Add these lines (copy/paste the entire block):
+# ============================================
+# py_home scheduled automations
+# ============================================
+
+# Scheduler: wake (05:00) and sleep (22:30) transitions
+# Runs every minute, checks for exact time matches
 * * * * * cd /home/matt.wheeler/py_home && /home/matt.wheeler/py_home/venv/bin/python automations/scheduler.py >> /home/matt.wheeler/py_home/data/logs/automations.log 2>&1
 
+# Temperature coordination: Nest + Sensibo HVAC sync (every 15 min)
+*/15 * * * * cd /home/matt.wheeler/py_home && /home/matt.wheeler/py_home/venv/bin/python automations/temp_coordination.py >> /home/matt.wheeler/py_home/data/logs/automations.log 2>&1
+
+# Temperature data logger: CSV logging for analysis (every 15 min)
+*/15 * * * * cd /home/matt.wheeler/py_home && /home/matt.wheeler/py_home/venv/bin/python automations/temp_data_logger.py >> /home/matt.wheeler/py_home/data/logs/automations.log 2>&1
+
+# TempStick monitoring: temp/humidity alerts (every 30 min)
+*/30 * * * * cd /home/matt.wheeler/py_home && /home/matt.wheeler/py_home/venv/bin/python automations/tempstick_monitor.py >> /home/matt.wheeler/py_home/data/logs/automations.log 2>&1
+
+# Air quality monitoring: PM2.5 alerts (every 30 min)
+*/30 * * * * cd /home/matt.wheeler/py_home && /home/matt.wheeler/py_home/venv/bin/python automations/air_quality_monitor.py >> /home/matt.wheeler/py_home/data/logs/automations.log 2>&1
+
+# Presence detection: WiFi-based home/away (every 5 min)
+*/5 * * * * cd /home/matt.wheeler/py_home && /home/matt.wheeler/py_home/venv/bin/python automations/presence_monitor.py >> /home/matt.wheeler/py_home/data/logs/automations.log 2>&1
+
 # Save and exit (Ctrl+O, Enter, Ctrl+X in nano)
+```
+
+**Verify cron jobs are installed:**
+```bash
+crontab -l
+# Should show 6 py_home entries
 ```
 
 ### 9. Create Log Directory
@@ -840,8 +860,9 @@ crontab -l
 ### Important Files
 
 - `/etc/systemd/system/py_home.service` - systemd service file
-- `/home/pi/py_home/config/.env` - credentials
-- `/home/pi/py_home/config/config.yaml` - configuration
+- `/home/matt.wheeler/py_home/config/.env` - credentials
+- `/home/matt.wheeler/py_home/config/config.yaml` - configuration
+- `/home/matt.wheeler/py_home/data/logs/automations.log` - automation logs
 - `/var/log/syslog` - system logs (includes cron)
 
 ---
