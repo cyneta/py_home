@@ -34,7 +34,8 @@
       "WebSearch",
       "Bash(bash scripts/deploy_nest_token.sh:*)",
       "Bash(python3 scripts/sync_local_config.py --force)",
-      "Bash(python3 scripts/sync_local_config.py --help)"
+      "Bash(python3 scripts/sync_local_config.py --help)",
+      "Bash(gh:*)"
     ],
     "deny": [
     ],
