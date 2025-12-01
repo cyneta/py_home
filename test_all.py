@@ -17,9 +17,8 @@ import requests
 from typing import Dict, List, Optional
 from pathlib import Path
 
-# Import visual logging from test_suite_framework
-sys.path.insert(0, str(Path(__file__).parent.parent / 'test_suite_framework'))
-from utils.visual_logging import TestResult, print_header, print_result, GREEN, RED, YELLOW, BLUE, CYAN, RESET
+# Import visual logging (local copy)
+from visual_logging import TestResult, print_header, print_result, GREEN, RED, YELLOW, BLUE, CYAN, RESET
 
 
 # ============================================================================
