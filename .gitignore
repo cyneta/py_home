@@ -22,4 +22,4 @@ data/location.json
 dist/
 env/
 Thumbs.db
-venv/
+.venv/
