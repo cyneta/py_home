@@ -10,7 +10,9 @@ from .client import (
     get_status,
     set_comfort,
     set_away,
-    set_sleep
+    set_sleep,
+    set_temperature,
+    set_mode
 )
 
 __all__ = [
@@ -19,5 +21,7 @@ __all__ = [
     'get_status',
     'set_comfort',
     'set_away',
-    'set_sleep'
+    'set_sleep',
+    'set_temperature',
+    'set_mode'
 ]

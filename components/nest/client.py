@@ -569,7 +569,37 @@ def set_sleep(temp_f=None):
     return get_nest().set_sleep_mode(temp_f)
 
 
+def set_temperature(temp_f, mode=None):
+    """
+    Set target temperature
+
+    Args:
+        temp_f: Target temperature in Fahrenheit
+        mode: 'HEAT' or 'COOL' (optional, uses current mode if not specified)
+
+    Example:
+        >>> set_temperature(72)  # Use current mode
+        >>> set_temperature(72, mode='HEAT')  # Specify mode
+    """
+    return get_nest().set_temperature(temp_f, mode)
+
+
+def set_mode(mode):
+    """
+    Set thermostat mode
+
+    Args:
+        mode: 'HEAT', 'COOL', 'HEATCOOL', or 'OFF'
+
+    Example:
+        >>> set_mode('HEAT')
+        >>> set_mode('OFF')
+    """
+    return get_nest().set_mode(mode)
+
+
 __all__ = [
     'NestAPI', 'get_nest', 'get_status',
-    'set_away', 'set_comfort', 'set_sleep'
+    'set_away', 'set_comfort', 'set_sleep',
+    'set_temperature', 'set_mode'
 ]

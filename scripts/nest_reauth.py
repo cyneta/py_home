@@ -10,7 +10,7 @@ import sys
 import os
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlencode
 import requests
 
 # Add project root to path
@@ -115,20 +115,18 @@ def get_refresh_token():
         'response_type': 'code',
         'scope': SCOPE,
         'access_type': 'offline',  # Request refresh token
-        'prompt': 'select_account consent',  # Force account selection + consent screen
-        'login_hint': 'matthew.g.wheeler@gmail.com'  # Suggest correct account
+        'prompt': 'consent'  # Force consent screen
     }
 
-    auth_url_full = AUTH_URL + "?" + "&".join([f"{k}={v}" for k, v in auth_params.items()])
+    auth_url_full = AUTH_URL + "?" + urlencode(auth_params)
 
     print("\n" + "=" * 70)
     print("Step 1: Authorize the application")
     print("=" * 70)
     print("\nA browser window will open. Please:")
-    print("1. **IMPORTANT**: Make sure you're logged into matthew.g.wheeler@gmail.com")
-    print("2. If prompted, select matthew.g.wheeler@gmail.com (NOT cyneta)")
-    print("3. Grant permission to access your Nest devices")
-    print("4. You'll be redirected back to this script automatically")
+    print("1. Select the Google account associated with your Nest devices")
+    print("2. Grant permission to access your Nest devices")
+    print("3. You'll be redirected back to this script automatically")
     print("\nStarting local server on http://localhost:8080...")
     print("\n⚠️  If you see 'Access blocked: redirect_uri_mismatch':")
     print("   You need to add http://localhost:8080 to authorized redirect URIs")
