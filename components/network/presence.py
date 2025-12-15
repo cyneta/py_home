@@ -21,18 +21,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def is_device_home(ip_address):
+def is_device_home(ip_address, method='ping'):
     """
     Check if device is on network by IP address
 
     Args:
         ip_address: IP address (e.g., '192.168.1.50')
+        method: Detection method ('ping', 'arp', or 'auto'). Currently only 'ping' is implemented.
 
     Returns:
         bool: True if device responds to ping
 
     Example:
         >>> is_device_home('192.168.1.50')
+        True
+        >>> is_device_home('192.168.1.50', method='ping')
         True
     """
     if not ip_address:
@@ -42,6 +45,10 @@ def is_device_home(ip_address):
     # Validate it's an IP address (not MAC)
     if ':' in ip_address or '-' in ip_address:
         raise ValueError(f"Invalid IP address: {ip_address}. MAC addresses are not supported.")
+
+    # Currently only ping is implemented
+    if method not in ('ping', 'auto'):
+        logger.warning(f"Method '{method}' not implemented, using ping")
 
     return _check_ping(ip_address)
 
