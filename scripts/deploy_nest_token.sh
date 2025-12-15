@@ -4,9 +4,9 @@
 
 set -e
 
-PI_HOST="${1:-192.168.50.189}"
-PI_USER="pi"
-PI_PATH="/home/pi/py_home"
+PI_HOST="${1:-100.107.121.6}"
+PI_USER="matt.wheeler"
+PI_PATH="/home/matt.wheeler/py_home"
 
 echo "=== Deploying Nest Refresh Token ==="
 echo "Target: ${PI_USER}@${PI_HOST}:${PI_PATH}"
@@ -31,7 +31,7 @@ echo
 
 # SSH to Pi and update token in place
 echo "Updating token on Pi..."
-ssh ${PI_USER}@${PI_HOST} "sed -i 's/^NEST_REFRESH_TOKEN=.*/NEST_REFRESH_TOKEN=${NEW_TOKEN}/' ${PI_PATH}/config/.env"
+ssh ${PI_USER}@${PI_HOST} "sed -i 's|^NEST_REFRESH_TOKEN=.*|NEST_REFRESH_TOKEN=${NEW_TOKEN}|' ${PI_PATH}/config/.env"
 
 if [ $? -eq 0 ]; then
     echo "✓ Token updated successfully"
