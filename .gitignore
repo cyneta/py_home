@@ -18,8 +18,13 @@ _pycache__/
 build/
 config/.env
 config/config.local.yaml
+config/*.backup
 data/location.json
+data/logs/
 dist/
 env/
 Thumbs.db
 .venv/
+*.backup
+*.deprecated
+scripts/*.local
